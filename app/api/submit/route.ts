@@ -8,7 +8,7 @@ import {
   isProblemLive,
 } from "@/lib/db/queries";
 import { runTests } from "@/lib/judge/runner";
-import { submitLimiter, withinLimit } from "@/lib/ratelimit";
+import { withinLimit } from "@/lib/ratelimit";
 import { parseBody } from "@/lib/validation";
 
 // Partial credit means every test runs, and java costs ~1.85s per test on the
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   const input = await parseBody(request);
   if (!input) return fail("INVALID");
 
-  const success = await withinLimit(submitLimiter, userId);
+  const success = await withinLimit("submit", userId);
   if (!success) return fail("RATE_LIMITED");
 
   const problem = await getProblemById(input.problemId);

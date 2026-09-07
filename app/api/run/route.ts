@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { getProblemById, getSampleTests, isProblemLive } from "@/lib/db/queries";
 import { matchesType } from "@/lib/problems/validate";
 import { runTests } from "@/lib/judge/runner";
-import { runLimiter, withinLimit } from "@/lib/ratelimit";
+import { withinLimit } from "@/lib/ratelimit";
 import { parseBody } from "@/lib/validation";
 
 // Samples only (2-3 tests), but java still costs ~1.85s each.
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   if (!input) return fail("INVALID");
 
   // Before any judge call or database read.
-  const success = await withinLimit(runLimiter, userId);
+  const success = await withinLimit("run", userId);
   if (!success) return fail("RATE_LIMITED");
 
   // Limits and tests come from the database, never from the request body.
