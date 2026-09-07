@@ -1,0 +1,12 @@
+/*
+ * The single entry point Tailwind processes.
+ *
+ * Both surfaces' theme blocks must be reachable from the file that imports
+ * Tailwind, or their `@theme` is never read and every utility built from it is
+ * silently dropped from the bundle. Importing them here is what keeps
+ * `bg-primary` (site) and `bg-ide-panel` (IDE) both real.
+ */
+@import "tailwindcss";
+
+@import "./ide.css";
+@import "./site.css";

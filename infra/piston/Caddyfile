@@ -1,0 +1,10 @@
+# Auto-provisions a Let's Encrypt certificate for PISTON_HOST.
+{$PISTON_HOST} {
+	# Every request must carry the shared secret. Without this the box would
+	# execute arbitrary code for anyone who found the address — which is exactly
+	# how the public Piston instance was taken down in August 2026.
+	@unauthorised not header X-Piston-Token {$PISTON_TOKEN}
+	respond @unauthorised 401
+
+	reverse_proxy piston:2000
+}

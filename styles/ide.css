@@ -1,0 +1,223 @@
+/*
+ * WIT IDE, "Quiet Bench".
+ *
+ * A lit workbench, not a dashboard. Panels are separated by tone, not borders,
+ * so the code surface is the largest and quietest object on screen. Pink is
+ * spent on exactly two things: the primary action and the current problem.
+ *
+ * Raw values live in :root so they can switch; `@theme inline` only names them.
+ * Light leads (a lecture hall in the evening still has the lights on); dark is
+ * the same room with the lamp off.
+ */
+:root {
+  --ide-ground: #fbf8f9;
+  --ide-panel: #ffffff;
+  --ide-panel-2: #f5f1f3;
+  --ide-panel-3: #ede7ea;
+  --ide-hairline: #e9e2e6;
+
+  --ide-ink: #191416;
+  --ide-ink-2: #675c61;
+  --ide-ink-3: #9a8e93;
+
+  --ide-accent: #c9346f;
+  --ide-accent-quiet: #fbeef4;
+  --ide-on-accent: #ffffff;
+
+  /* State hues are teal / ochre / rose, each also carrying a word and a mark. */
+  --ide-pass: #0f7a5c;
+  --ide-pass-quiet: #e8f5f0;
+  --ide-warn: #8f6208;
+  --ide-warn-quiet: #fbf1de;
+  --ide-fail: #bd3552;
+  --ide-fail-quiet: #fceef0;
+  --ide-info: #2a60b8;
+  --ide-info-quiet: #ebf1fb;
+
+  --ide-shadow-panel: 0 1px 2px rgb(25 20 22 / 0.04), 0 10px 24px -14px rgb(25 20 22 / 0.18);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --ide-ground: #111014;
+    --ide-panel: #1a181c;
+    --ide-panel-2: #211f24;
+    --ide-panel-3: #2b282e;
+    --ide-hairline: #2f2c33;
+
+    --ide-ink: #f4f1f3;
+    --ide-ink-2: #aaa2a7;
+    --ide-ink-3: #786f75;
+
+    --ide-accent: #e2669e;
+    --ide-accent-quiet: #2e1a24;
+    --ide-on-accent: #1a1013;
+
+    --ide-pass: #4fcda4;
+    --ide-pass-quiet: #10261f;
+    --ide-warn: #e0ab4b;
+    --ide-warn-quiet: #2a2113;
+    --ide-fail: #ef7a8d;
+    --ide-fail-quiet: #2c161c;
+    --ide-info: #7fa8ef;
+    --ide-info-quiet: #151d2c;
+
+    --ide-shadow-panel: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 24px -14px rgb(0 0 0 / 0.7);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ide-ground: #111014;
+  --ide-panel: #1a181c;
+  --ide-panel-2: #211f24;
+  --ide-panel-3: #2b282e;
+  --ide-hairline: #2f2c33;
+
+  --ide-ink: #f4f1f3;
+  --ide-ink-2: #aaa2a7;
+  --ide-ink-3: #786f75;
+
+  --ide-accent: #e2669e;
+  --ide-accent-quiet: #2e1a24;
+  --ide-on-accent: #1a1013;
+
+  --ide-pass: #4fcda4;
+  --ide-pass-quiet: #10261f;
+  --ide-warn: #e0ab4b;
+  --ide-warn-quiet: #2a2113;
+  --ide-fail: #ef7a8d;
+  --ide-fail-quiet: #2c161c;
+  --ide-info: #7fa8ef;
+  --ide-info-quiet: #151d2c;
+
+  --ide-shadow-panel: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 24px -14px rgb(0 0 0 / 0.7);
+}
+
+@theme inline {
+  --color-ide-ground: var(--ide-ground);
+  --color-ide-panel: var(--ide-panel);
+  --color-ide-panel-2: var(--ide-panel-2);
+  --color-ide-panel-3: var(--ide-panel-3);
+  --color-ide-hairline: var(--ide-hairline);
+
+  --color-ide-ink: var(--ide-ink);
+  --color-ide-ink-2: var(--ide-ink-2);
+  --color-ide-ink-3: var(--ide-ink-3);
+
+  --color-ide-accent: var(--ide-accent);
+  --color-ide-accent-quiet: var(--ide-accent-quiet);
+  --color-ide-on-accent: var(--ide-on-accent);
+
+  --color-ide-pass: var(--ide-pass);
+  --color-ide-pass-quiet: var(--ide-pass-quiet);
+  --color-ide-warn: var(--ide-warn);
+  --color-ide-warn-quiet: var(--ide-warn-quiet);
+  --color-ide-fail: var(--ide-fail);
+  --color-ide-fail-quiet: var(--ide-fail-quiet);
+  --color-ide-info: var(--ide-info);
+  --color-ide-info-quiet: var(--ide-info-quiet);
+
+  /* One rhythm rules both panes. */
+  --radius-ide-panel: 1.125rem;
+  --radius-inset: 0.625rem;
+  --radius-control: 0.5rem;
+
+  --font-ide-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-ide-display: var(--font-gabarito);
+
+  --shadow-ide-panel: var(--ide-shadow-panel);
+}
+
+/*
+ * Everything below is scoped to `.ide-surface`, which the IDE layout puts on
+ * its root element. The marketing site shares this document and must not
+ * inherit the editor's ground, fonts, caret or scrollbars.
+ */
+.ide-surface {
+  background: var(--ide-ground);
+  color: var(--ide-ink);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* The parts nobody draws still belong to the design. */
+.ide-surface ::selection {
+  background: var(--ide-accent-quiet);
+  color: var(--ide-ink);
+}
+
+.ide-surface :focus-visible {
+  outline: 2px solid var(--ide-accent);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+
+.ide-surface textarea,
+.ide-surface input {
+  caret-color: var(--ide-accent);
+}
+
+.ide-surface * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ide-panel-3) transparent;
+}
+
+.ide-surface *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.ide-surface *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ide-surface *::-webkit-scrollbar-thumb {
+  background: var(--ide-panel-3);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+
+.ide-surface *::-webkit-scrollbar-thumb:hover {
+  background: var(--ide-ink-3);
+  background-clip: content-box;
+}
+
+/* Every count, score and clock in this UI is compared against another one. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The one authored moment: a result arrives by settling into place, the way a
+ * card is set down on a bench. Everything else in the UI is a tone change.
+ */
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.994);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.settle {
+  animation: settle 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.settle-2 {
+  animation: settle 420ms cubic-bezier(0.16, 1, 0.3, 1) 60ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settle,
+  .settle-2 {
+    animation: none;
+  }
+}

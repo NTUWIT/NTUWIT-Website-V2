@@ -1,0 +1,1 @@
+ALTER TABLE "problems" ALTER COLUMN "time_limit_ms" SET DEFAULT 5000;

@@ -1,0 +1,248 @@
+/*
+ * NTU Women in Tech marketing site.
+ *
+ * Ported from the standalone Vite app. The palette is unchanged: HSL triplets
+ * in custom properties, mapped to Tailwind utilities through `@theme inline`.
+ *
+ * Everything that was global there (font size, body background, selection) is
+ * scoped to `.wit-site` here, because this document also carries the IDE, whose
+ * tokens are namespaced `--ide-*` in globals.css.
+ */
+
+.wit-site {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 6%;
+  
+  --ink: 0 0% 6%;
+  --ink-soft: 0 0% 24%;
+  
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 6%;
+  
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 6%;
+  
+  /* Coral pink from WIT logo - refined */
+  --primary: 8 72% 68%;
+  --primary-foreground: 0 0% 6%;
+  --primary-deep: 8 68% 55%;
+  
+  /* Soft pink surface - more subtle */
+  --blush: 12 60% 96%;
+  --blush-strong: 10 65% 91%;
+  
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 6%;
+  
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 40%;
+  
+  /* Refined orange accent */
+  --accent: 22 85% 52%;
+  --accent-foreground: 0 0% 100%;
+  
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  
+  --border: 0 0% 91%;
+  --hairline: 0 0% 88%;
+  --input: 0 0% 91%;
+  --ring: 22 100% 50%;
+  
+  --radius: 0.75rem;
+  
+  --sidebar-background: 0 0% 98%;
+  --sidebar-foreground: 0 0% 26%;
+  --sidebar-primary: 0 0% 10%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 0 0% 96%;
+  --sidebar-accent-foreground: 0 0% 10%;
+  --sidebar-border: 0 0% 91%;
+  --sidebar-ring: 22 100% 50%;
+  
+  --gradient-blush: linear-gradient(135deg, hsl(12 60% 97%), hsl(8 68% 90%));
+  --gradient-coral: linear-gradient(135deg, hsl(8 72% 68%), hsl(22 80% 58%));
+  --wit-shadow-soft:
+  0 1px 2px hsl(0 0% 0% / 0.03), 0 4px 12px hsl(8 60% 50% / 0.06);
+  --wit-shadow-pop: 0 12px 40px -8px hsl(8 60% 50% / 0.2);
+}
+
+@theme inline {
+  --color-border: hsl(var(--border));
+  --color-hairline: hsl(var(--hairline));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-ink: hsl(var(--ink));
+  --color-ink-soft: hsl(var(--ink-soft));
+
+  --color-blush: hsl(var(--blush));
+  --color-blush-strong: hsl(var(--blush-strong));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-deep: hsl(var(--primary-deep));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --shadow-soft: var(--wit-shadow-soft);
+  --shadow-pop: var(--wit-shadow-pop);
+
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-fraunces), var(--font-inter), serif;
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+.wit-site {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-size: 15.5px;
+}
+
+.wit-site ::selection {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+/* The original centred `container` utility from the Vite config. */
+.wit-site .container {
+  margin-inline: auto;
+  width: 100%;
+  padding-inline: 2rem;
+}
+
+@media (min-width: 1400px) {
+  .wit-site .container {
+    max-width: 1400px;
+  }
+}
+
+
+@utility display {
+    font-family: var(--font-fraunces), var(--font-inter), serif;
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.04;
+  }
+@utility mono-eyebrow {
+    font-family: var(--font-inter), sans-serif;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+@utility container-wit {
+    margin-inline: auto; width: 100%; max-width: 80rem; padding-inline: 1.5rem;
+  }
+@utility hairline-y {
+  & > * + * {
+    border-top: 1px solid hsl(var(--hairline));
+  }
+}
+@utility hairline-x {
+  & > * + * {
+    border-left: 1px solid hsl(var(--hairline));
+  }
+}
+
+
+@utility bg-blush {
+    background-color: hsl(var(--blush));
+  }
+@utility bg-blush-strong {
+    background-color: hsl(var(--blush-strong));
+  }
+@utility text-ink {
+    color: hsl(var(--ink));
+  }
+@utility text-ink-soft {
+    color: hsl(var(--ink-soft));
+  }
+@utility bg-gradient-blush {
+    background-image: var(--gradient-blush);
+  }
+@utility bg-gradient-coral {
+    background-image: var(--gradient-coral);
+  }
+@utility marquee {
+    animation: marquee 30s linear infinite;
+  }
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+@utility float-slow {
+    animation: float 6s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+@utility fade-up {
+    animation: fadeUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  /* Subtle dotted blush background for section ambience */
+@utility bg-dotgrid {
+    background-color: hsl(var(--background));
+    background-image: radial-gradient(
+      hsl(var(--primary) / 0.18) 1px,
+      transparent 1px
+    );
+    background-size: 22px 22px;
+  }
+@utility bg-blush-wash {
+    background:
+      radial-gradient(60% 50% at 80% 0%, hsl(var(--blush)) 0%, transparent 60%),
+      radial-gradient(
+        50% 50% at 0% 100%,
+        hsl(var(--blush-strong) / 0.6) 0%,
+        transparent 60%
+      ),
+      hsl(var(--background));
+  }
+
+@media (max-width: 640px) {
+  .wit-site {
+    font-size: 15px;
+  }
+}

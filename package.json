@@ -6,21 +6,46 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "seed": "tsx --conditions=react-server --env-file=.env scripts/seed.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/check-judge.mjs && node scripts/check-scoring.mjs && tsx --conditions=react-server scripts/check-harness.ts && tsx --conditions=react-server scripts/check-units.ts && tsx --conditions=react-server scripts/check-problems.ts && tsx --conditions=react-server scripts/check-api.ts",
+    "event": "tsx --conditions=react-server --env-file=.env scripts/event.ts",
+    "check:e2e": "tsx --conditions=react-server --env-file=.env scripts/check-e2e.ts",
+    "check:problems": "tsx --conditions=react-server --env-file=.env scripts/check-problems.ts",
+    "check:api": "tsx --conditions=react-server --env-file=.env scripts/check-api.ts",
+    "check:dsa": "tsx --conditions=react-server --env-file=.env scripts/check-dsa.ts"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.9.0",
+    "@monaco-editor/react": "^4.7.0",
+    "@neondatabase/serverless": "^1.1.0",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.3",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.2",
+    "lucide-react": "^1.42.0",
+    "monaco-editor": "^0.56.0",
     "next": "16.3.3",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5"
   },
   "packageManager": "yarn@1.22.22"
