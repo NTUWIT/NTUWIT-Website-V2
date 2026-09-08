@@ -1,10 +1,34 @@
 # Auto-provisions a Let's Encrypt certificate for PISTON_HOST.
+{
+	order rate_limit before basicauth
+}
+
 {$PISTON_HOST} {
 	# Every request must carry the shared secret. Without this the box would
-	# execute arbitrary code for anyone who found the address — which is exactly
+	# execute arbitrary code for anyone who found the address, which is exactly
 	# how the public Piston instance was taken down in August 2026.
 	@unauthorised not header X-Piston-Token {$PISTON_TOKEN}
 	respond @unauthorised 401
+
+	# The token is the gate; this bounds the damage if it ever leaks.
+	#
+	# 300/min per address is deliberately above anything this box can actually
+	# execute (roughly 1-3 runs a second), so it never throttles a real event:
+	# one submission is one request per test case, and 80 participants at the
+	# platform's own 5-submissions-a-minute limit can burst hard through a
+	# small number of Vercel egress addresses. It still stops the thing worth
+	# stopping, which is somebody with a leaked token mining on this box
+	# around the clock.
+	#
+	# If the load test in docs/DEPLOY.md ever shows a 429 reaching a
+	# participant as JUDGE_UNAVAILABLE, raise this rather than removing it.
+	rate_limit {
+		zone piston {
+			key {remote_host}
+			events 300
+			window 1m
+		}
+	}
 
 	reverse_proxy piston:2000
 }

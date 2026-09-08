@@ -89,6 +89,47 @@ curl -sX POST "$PISTON_URL/api/v2/execute" \
 Expect `run.stdout` of `"6\n"` and `run.code` of `0`. The same call without the
 token header must return `401`.
 
+## Hardening
+
+What is in place, and what it is for:
+
+- **Piston is never published to the host.** Only Caddy can reach port 2000, so
+  the address alone gets nobody an execution endpoint.
+- **Caddy refuses anything without `X-Piston-Token`**, on every path, not just
+  `/execute`. Verify with the curl above and its no-token twin.
+- **Rate limited to 300 requests a minute per address.** This is above what the
+  box can execute, so it never throttles a real event; it exists to stop
+  somebody with a leaked token mining here around the clock. The image is built
+  from `caddy.Dockerfile` because stock Caddy has no rate limiter.
+- **fail2ban**, `bantime 1h` after 5 failures in 10 minutes. SSH is key-only so
+  the roughly 3,000 daily brute-force attempts cannot succeed; the jail stops
+  them burning CPU and journal space on a 1 vCPU box mid-event.
+- **`unattended-upgrades`** is on, so security patches land without anyone
+  remembering to log in.
+
+Still worth doing, and only doable from the DigitalOcean console:
+
+- **A cloud firewall** allowing inbound 22, 80 and 443 only. Use the cloud
+  firewall rather than `ufw`: Docker writes its own iptables rules and bypasses
+  `ufw` entirely, so `ufw` here would be false confidence.
+
+**`privileged: true` cannot be removed.** isolate needs cgroup control, which is
+the whole reason this runs on a VM rather than a container host. It means a
+container escape is root on this box, so the mitigation is to keep the box
+worthless: the only secret here is `PISTON_TOKEN` itself. Never put the database
+URL or the Clerk keys on this machine.
+
+### Rotating the token
+
+```bash
+NEW=$(openssl rand -hex 32)
+ssh <box> "sed -i 's/^PISTON_TOKEN=.*/PISTON_TOKEN=$NEW/' ~/.env && cd ~ && docker compose up -d"
+# then update PISTON_TOKEN in Vercel and in your local .env, and redeploy
+```
+
+Rotate if the token is ever pasted somewhere public, or after anyone leaves the
+committee.
+
 ## Scale for the event
 
 One instance handles roughly 10 concurrent executions. The Always Free ARM shape

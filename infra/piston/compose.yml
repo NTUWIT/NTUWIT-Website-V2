@@ -24,7 +24,10 @@ services:
       - "2000"
 
   caddy:
-    image: caddy:2-alpine
+    # Built rather than pulled: the stock image has no rate limiter.
+    build:
+      context: .
+      dockerfile: caddy.Dockerfile
     container_name: caddy
     restart: always
     ports:
