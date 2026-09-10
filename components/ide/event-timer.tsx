@@ -36,22 +36,22 @@ export function EventTimer({ endsAt }: { endsAt: string | null }) {
   if (Number.isNaN(deadline) || remaining === null) return null;
 
   const over = remaining <= 0;
-  // Calm until the last five minutes, then amber. Never red: a countdown that
-  // shouts makes people write worse code.
+  // Amber for the last five minutes. Never red: the clock should be readable
+  // from across a lecture hall without raising the temperature in it.
   const urgent = !over && remaining < 5 * 60 * 1000;
 
   return (
     <span
-      className={`tnum flex items-center gap-1.5 rounded-control px-2.5 py-1.5 font-mono text-sm ${
+      className={`tnum flex items-center gap-1.5 rounded-control px-3 py-1.5 font-mono text-sm font-semibold ${
         over
-          ? "text-ide-ink-3"
+          ? "bg-ide-panel-2 text-ide-ink-3"
           : urgent
             ? "bg-ide-warn-quiet text-ide-warn"
-            : "text-ide-ink-2"
+            : "bg-ide-accent-quiet text-ide-accent-ink"
       }`}
       title="Time left in this session"
     >
-      <ClockIcon className="h-3.5 w-3.5" />
+      <ClockIcon className="h-4 w-4" />
       {over ? "Time's up" : format(remaining)}
     </span>
   );

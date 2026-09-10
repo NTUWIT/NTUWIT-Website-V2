@@ -115,6 +115,10 @@ export const scores = pgTable(
 // setting exists.
 export const eventSettings = pgTable("event_settings", {
   id: integer("id").primaryKey(),
+  // The session window. `endsAt` null means no timer and the session stays
+  // open; when it is set, the pair is a closed interval and the judge refuses
+  // anything outside it.
+  startsAt: timestamp("starts_at", { withTimezone: true }),
   endsAt: timestamp("ends_at", { withTimezone: true }),
   // What participants can open right now. At most one of these is ever set;
   // both null means nothing is live. The pair is the single source of truth for

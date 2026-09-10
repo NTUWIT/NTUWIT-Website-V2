@@ -60,10 +60,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
   const statement = (
     <aside className="flex h-full min-h-0 flex-col p-3 pt-0 lg:pr-1.5">
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-ide-panel bg-ide-panel shadow-ide-panel">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-panel bg-ide-panel shadow-ide-panel">
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="px-8 pt-8 pb-2">
-            <h1 className="font-ide-display text-[2.6rem] leading-[1.05] font-semibold tracking-[-0.03em] text-balance">
+          <div className="px-5 pt-6 pb-2 sm:px-8 sm:pt-8">
+            <h1 className="font-ide-display text-[2rem] leading-[1.08] font-semibold tracking-[-0.03em] text-balance sm:text-[2.6rem] sm:leading-[1.05]">
               {problem.title}
             </h1>
             <p className="mt-3 flex items-center gap-4 text-sm text-ide-ink-3">
@@ -72,7 +72,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             </p>
           </div>
 
-          <div className="px-8 pb-8">
+          <div className="px-5 pb-8 sm:px-8">
             <div className="max-w-[68ch] text-[0.95rem] leading-[1.75] text-ide-ink-2 [&_code]:rounded-[0.3rem] [&_code]:bg-ide-panel-2 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-ide-ink [&_h2]:mt-8 [&_h2]:mb-2 [&_h2]:font-ide-display [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-ide-ink [&_h3]:mt-8 [&_h3]:mb-2 [&_h3]:font-ide-display [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-ide-ink [&_li]:my-1.5 [&_p]:my-3.5 [&_pre]:overflow-x-auto [&_pre]:rounded-inset [&_pre]:bg-ide-panel-2 [&_pre]:p-4 [&_pre]:text-sm [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_strong]:font-semibold [&_strong]:text-ide-ink [&_ul]:list-disc [&_ul]:pl-5">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {problem.statementMd}
@@ -86,7 +86,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                 </h2>
                 {/* Ruled rows, not cards: a card inside a panel is a box inside
                     a box, and these are readings of one sheet. */}
-                <dl className="mt-3 divide-y divide-hairline border-y border-ide-hairline">
+                <dl className="mt-3 divide-y divide-ide-hairline border-y border-ide-hairline">
                   {samples.map((sample, index) => (
                     <div
                       key={index}
@@ -114,7 +114,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                 <h2 className="font-ide-display text-base font-semibold text-ide-ink">
                   Other problems
                 </h2>
-                <ul className="mt-3 divide-y divide-hairline border-y border-ide-hairline">
+                <ul className="mt-3 divide-y divide-ide-hairline border-y border-ide-hairline">
                   {all.map((entry) => {
                     const current = entry.slug === problem.slug;
                     return (
@@ -183,7 +183,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 function Empty({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-1 items-center justify-center p-8">
-      <div className="max-w-sm rounded-ide-panel bg-ide-panel px-8 py-7 text-center shadow-ide-panel">
+      <div className="max-w-sm rounded-panel bg-ide-panel px-8 py-7 text-center shadow-ide-panel">
         <h1 className="font-ide-display text-xl font-semibold">{title}</h1>
         <p className="mt-1.5 text-sm text-ide-ink-2">{children}</p>
       </div>

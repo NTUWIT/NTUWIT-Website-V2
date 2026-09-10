@@ -17,11 +17,12 @@
   --ide-hairline: #e9e2e6;
 
   --ide-ink: #191416;
-  --ide-ink-2: #675c61;
-  --ide-ink-3: #9a8e93;
+  --ide-ink-2: #574d52;
+  --ide-ink-3: #726670;
 
   --ide-accent: #c9346f;
   --ide-accent-quiet: #fbeef4;
+  --ide-accent-ink: #bf2f68;
   --ide-on-accent: #ffffff;
 
   /* State hues are teal / ochre / rose, each also carrying a word and a mark. */
@@ -49,10 +50,11 @@
 
     --ide-ink: #f4f1f3;
     --ide-ink-2: #aaa2a7;
-    --ide-ink-3: #786f75;
+    --ide-ink-3: #918790;
 
     --ide-accent: #e2669e;
     --ide-accent-quiet: #2e1a24;
+    --ide-accent-ink: #e2669e;
     --ide-on-accent: #1a1013;
 
     --ide-pass: #4fcda4;
@@ -79,10 +81,11 @@
 
   --ide-ink: #f4f1f3;
   --ide-ink-2: #aaa2a7;
-  --ide-ink-3: #786f75;
+  --ide-ink-3: #918790;
 
   --ide-accent: #e2669e;
   --ide-accent-quiet: #2e1a24;
+  --ide-accent-ink: #e2669e;
   --ide-on-accent: #1a1013;
 
   --ide-pass: #4fcda4;
@@ -110,6 +113,7 @@
 
   --color-ide-accent: var(--ide-accent);
   --color-ide-accent-quiet: var(--ide-accent-quiet);
+  --color-ide-accent-ink: var(--ide-accent-ink);
   --color-ide-on-accent: var(--ide-on-accent);
 
   --color-ide-pass: var(--ide-pass);
@@ -122,7 +126,7 @@
   --color-ide-info-quiet: var(--ide-info-quiet);
 
   /* One rhythm rules both panes. */
-  --radius-ide-panel: 1.125rem;
+  --radius-panel: 1.125rem;
   --radius-inset: 0.625rem;
   --radius-control: 0.5rem;
 
@@ -220,4 +224,8 @@
   .settle-2 {
     animation: none;
   }
+
+  /* Spinners are deliberately left running. They report that a request is in
+     flight, and a stopped spinner reports the opposite. They are small, do not
+     flash, and never sit under text being read. */
 }

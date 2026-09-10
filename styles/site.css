@@ -246,3 +246,42 @@
     font-size: 15px;
   }
 }
+
+/*
+ * Reduced motion, marketing site.
+ *
+ * Deliberately not a blanket `animation: none` on everything. The rule is to
+ * remove movement while keeping the feedback and the content:
+ *
+ * - Colour and background transitions stay. They are how a link reports hover
+ *   and how the header reports that the page has scrolled; killing them removes
+ *   state, not motion.
+ * - The partner ribbon stops and becomes scrollable, so every name is still
+ *   reachable by the reader's own action rather than by waiting for it to
+ *   travel past.
+ * - The entrance animation is dropped rather than shortened. It fills `both`
+ *   from `opacity: 0`, so with no animation the element simply renders at its
+ *   resting opacity, already visible.
+ * - The hero canvas is not handled here: it reads the same preference in
+ *   HeroScene.tsx and paints a still frame.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .wit-site .marquee {
+    animation: none;
+    overflow-x: auto;
+  }
+
+  /* Currently unused, covered so it cannot reintroduce motion if adopted. */
+  .wit-site .float-slow {
+    animation: none;
+  }
+
+  .wit-site .fade-up {
+    animation: none;
+  }
+
+  /* Decorative "live" dots. A static dot says the same thing. */
+  .wit-site .animate-pulse {
+    animation: none;
+  }
+}

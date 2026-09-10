@@ -12,8 +12,8 @@ export default async function AdminPage() {
   ]);
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-10">
-      <h1 className="font-ide-display text-4xl font-semibold tracking-tight">Console</h1>
+    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
+      <h1 className="font-ide-display text-3xl font-semibold tracking-tight sm:text-4xl">Console</h1>
       <p className="mt-2 max-w-[62ch] text-sm leading-relaxed text-ide-ink-2">
         One thing is open at a time. Whatever is on the left is exactly what a
         participant can see; everything else is invisible to them and refused by

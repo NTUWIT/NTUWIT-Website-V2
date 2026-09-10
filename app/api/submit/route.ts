@@ -5,9 +5,11 @@ import {
   getProblemById,
   insertSubmission,
   upsertScore,
+  getSessionWindow,
   isProblemLive,
 } from "@/lib/db/queries";
 import { runTests } from "@/lib/judge/runner";
+import { isSessionOpen } from "@/lib/session";
 import { withinLimit } from "@/lib/ratelimit";
 import { parseBody } from "@/lib/validation";
 
@@ -33,6 +35,12 @@ export async function POST(request: Request) {
   // The client cannot be trusted to stop asking: a tab left open from an
   // earlier set, or a hand-made request, both arrive here looking legitimate.
   if (!(await isProblemLive(problem.id))) return fail("NOT_FOUND");
+
+  // The session window is enforced here and nowhere else that matters. A tab
+  // left open past the end, a replayed request, or a clock skewed on the
+  // participant's laptop all arrive looking ordinary; only the server's own
+  // reading of the window decides. No exceptions.
+  if (!isSessionOpen(await getSessionWindow())) return fail("SESSION_CLOSED");
 
   const tests = await getAllTests(problem.id);
   if (tests.length === 0) return fail("NOT_FOUND");

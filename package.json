@@ -11,12 +11,13 @@
     "db:migrate": "drizzle-kit migrate",
     "seed": "tsx --conditions=react-server --env-file=.env scripts/seed.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/check-judge.mjs && node scripts/check-scoring.mjs && tsx --conditions=react-server scripts/check-harness.ts && tsx --conditions=react-server scripts/check-units.ts && tsx --conditions=react-server scripts/check-problems.ts && tsx --conditions=react-server scripts/check-api.ts",
+    "test": "tsx --conditions=react-server scripts/check-tokens.ts && node scripts/check-judge.mjs && node scripts/check-scoring.mjs && tsx --conditions=react-server scripts/check-harness.ts && tsx --conditions=react-server scripts/check-units.ts && tsx --conditions=react-server scripts/check-problems.ts && tsx --conditions=react-server scripts/check-api.ts",
     "event": "tsx --conditions=react-server --env-file=.env scripts/event.ts",
     "check:e2e": "tsx --conditions=react-server --env-file=.env scripts/check-e2e.ts",
     "check:problems": "tsx --conditions=react-server --env-file=.env scripts/check-problems.ts",
     "check:api": "tsx --conditions=react-server --env-file=.env scripts/check-api.ts",
-    "check:dsa": "tsx --conditions=react-server --env-file=.env scripts/check-dsa.ts"
+    "check:dsa": "tsx --conditions=react-server --env-file=.env scripts/check-dsa.ts",
+    "check:qa": "tsx --conditions=react-server --env-file=.env scripts/check-qa.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.0",

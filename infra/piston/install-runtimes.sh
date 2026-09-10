@@ -118,3 +118,24 @@ else
   say "Finished with errors — re-run this script; completed runtimes are skipped."
   exit 1
 fi
+
+# ---------------------------------------------------------------------------
+# Java ships without a compile stage: its run script uses `java Main.java`
+# single-file mode, which recompiles the source on every execution. That put
+# roughly 1.6s of javac inside the run timeout on every test case, so correct
+# Java solutions timed out at random. Splitting compile out moves that cost to
+# the compile budget and leaves the run stage at under 100ms.
+#
+# Requires a `docker compose restart piston` afterwards: Piston reads a
+# package's scripts when it loads the package, not per request.
+# ---------------------------------------------------------------------------
+install_java_compile_stage() {
+  local pkg=/piston/packages/java/15.0.2
+  echo "installing the Java compile stage"
+  docker exec piston sh -c "[ -f $pkg/run.original.bak ] || cp $pkg/run $pkg/run.original.bak"
+  docker cp "$(dirname "$0")/packages/java/compile" piston:$pkg/compile
+  docker cp "$(dirname "$0")/packages/java/run" piston:$pkg/run
+  docker exec piston chmod +x $pkg/compile $pkg/run
+  docker compose restart piston
+  echo "  restarted; give it a few seconds"
+}

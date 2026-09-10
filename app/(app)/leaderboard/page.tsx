@@ -44,7 +44,7 @@ export default async function LeaderboardPage() {
           Nothing here yet. Scores appear once someone submits a solution.
         </p>
       ) : (
-        <ol className="mt-8 divide-y divide-hairline border-y border-ide-hairline">
+        <ol className="mt-8 divide-y divide-ide-hairline border-y border-ide-hairline">
           {rows.map((row, index) => {
             const isMe = row.userId === me;
             return (

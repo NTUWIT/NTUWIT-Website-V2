@@ -235,12 +235,36 @@ const JAVA_RUNTIME = `    private static String in;
     }
 `;
 
-function javaHarness(source: string, sig: Signature): string {
+/**
+ * Java requires every `import` at the top of the file, but participant source
+ * is appended below `class Main`. A Java author reaching for `import
+ * java.util.*;` out of habit would otherwise get a compile error that has
+ * nothing to do with their solution, so the imports are lifted out and placed
+ * with the harness's own.
+ */
+function hoistJavaImports(source: string): { imports: string[]; body: string } {
+  const imports: string[] = [];
+  const body = source
+    .split("\n")
+    .filter((line) => {
+      if (/^\s*import\s+[\w.*]+\s*;/.test(line)) {
+        imports.push(line.trim());
+        return false;
+      }
+      return true;
+    })
+    .join("\n");
+  return { imports: [...new Set(imports)], body };
+}
+
+function javaHarness(rawSource: string, sig: Signature): string {
+  const { imports, body: source } = hoistJavaImports(rawSource);
   const reads = sig.params
     .map((p, i) => `        ${JAVA_TYPE[p.type]} a${i} = ${JAVA_READER[p.type]}; ${i < sig.params.length - 1 ? "eat(',');" : ""}`)
     .join("\n");
   const call = `Solution.${camel(sig.name)}(${sig.params.map((_, i) => `a${i}`).join(", ")})`;
   return `import java.util.*;
+${imports.filter((line) => line !== "import java.util.*;").join("\n")}
 
 public class Main {
 ${JAVA_RUNTIME}

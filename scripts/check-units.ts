@@ -9,6 +9,7 @@ import { wrapSource } from "@/lib/judge/harness";
 import { starterFor } from "@/lib/problems/starter";
 import { PARAM_TYPES, type ParamType, type Signature } from "@/lib/problems/signature";
 import { LANGUAGES } from "@/lib/languages";
+import { isSessionOpen, sessionState } from "@/lib/session";
 import { expectedForm, matchesType } from "@/lib/problems/validate";
 
 /* ---------- normaliseOutput / outputMatches ---------- */
@@ -165,6 +166,35 @@ for (const type of PARAM_TYPES) {
   }
 }
 
+/* ---------- Java imports are hoisted (participants write them by habit) ---------- */
+
+{
+  const sig = sigOf(["int[]"], "int[]");
+  const withImport = wrapSource({
+    language: "java",
+    source: 'import java.util.*;\nimport java.math.BigInteger;\n\nclass Solution { static long[] probeFn(long[] a) { return a; } }',
+    signature: sig,
+  });
+  const header = withImport.slice(0, withImport.indexOf("public class Main"));
+  assert.ok(
+    header.includes("import java.math.BigInteger;"),
+    "a participant's import must be lifted above the class",
+  );
+  assert.ok(
+    !withImport.slice(withImport.indexOf("public class Main")).includes("import java.math.BigInteger;"),
+    "the import must not also remain in the body, where javac rejects it",
+  );
+  assert.equal(
+    (withImport.match(/import java\.util\.\*;/g) ?? []).length,
+    1,
+    "an import the harness already makes must not be duplicated",
+  );
+  // A solution with no imports must be untouched.
+  assert.ok(
+    wrapSource({ language: "java", source: MARKER, signature: sig }).includes(MARKER),
+  );
+}
+
 /* ---------- argument-count boundaries (C++/Java separator logic) ---------- */
 
 for (const count of [0, 1, 2, 5, 8]) {
@@ -193,3 +223,34 @@ for (const language of LANGUAGES) {
 }
 
 console.log("check-units: all assertions passed");
+
+/* ---------- the session window is closed at both ends ---------- */
+
+{
+  const at = (iso: string) => new Date(iso);
+  const start = at("2026-09-08T10:00:00Z");
+  const end = at("2026-09-08T11:00:00Z");
+  const window = { startsAt: start, endsAt: end };
+
+  // No timer at all: the session is open for as long as a problem is active.
+  assert.equal(sessionState({ startsAt: null, endsAt: null }), "open");
+  assert.equal(sessionState({ startsAt: start, endsAt: null }), "open");
+
+  assert.equal(sessionState(window, at("2026-09-08T09:59:59Z")), "not_started");
+  assert.equal(sessionState(window, start), "open", "the first instant is inside");
+  assert.equal(sessionState(window, at("2026-09-08T10:30:00Z")), "open");
+  // The end is exclusive: the instant the timer reads zero, submissions stop.
+  assert.equal(sessionState(window, end), "ended");
+  assert.equal(sessionState(window, at("2026-09-08T11:00:01Z")), "ended");
+  assert.equal(sessionState(window, at("2027-01-01T00:00:00Z")), "ended");
+
+  // A window with no start still closes at the end, so a missing start can
+  // never be read as "always allowed".
+  assert.equal(sessionState({ startsAt: null, endsAt: end }, at("2026-09-08T12:00:00Z")), "ended");
+  assert.equal(sessionState({ startsAt: null, endsAt: end }, at("2026-09-08T10:30:00Z")), "open");
+
+  assert.equal(isSessionOpen(window, at("2026-09-08T10:30:00Z")), true);
+  assert.equal(isSessionOpen(window, end), false);
+}
+
+console.log("check-units: session window assertions passed");

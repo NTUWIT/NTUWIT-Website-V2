@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AccountMenu } from "@/components/ide/AccountMenu";
 import { isAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -21,17 +22,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="ide-surface flex min-h-screen flex-col">
-      <header className="flex h-13 shrink-0 items-center justify-between gap-4 px-5">
-        <Link href="/admin" className="text-[0.95rem] font-semibold tracking-tight">
-          Console
+      <header className="flex h-13 shrink-0 items-center justify-between gap-2 px-3 sm:gap-4 sm:px-4">
+        <Link href="/admin" className="flex items-center gap-2.5 px-1 py-1">
+          <span aria-hidden className="h-2 w-2 rounded-full bg-ide-accent" />
+          <span className="text-[0.95rem] font-semibold tracking-tight">Console</span>
         </Link>
-        <nav className="flex items-center gap-4 text-sm text-ide-ink-3">
-          <Link href="/ide" className="transition hover:text-ide-ink">
-            Open the IDE
+        <nav className="flex items-center gap-3 text-sm text-ide-ink-3">
+          <Link href="/ide" className="rounded-control px-2.5 py-2 transition hover:bg-ide-panel-2 hover:text-ide-ink">
+            WIT IDE
           </Link>
-          <Link href="/" className="transition hover:text-ide-ink">
+          <Link href="/" className="rounded-control px-2.5 py-2 transition hover:bg-ide-panel-2 hover:text-ide-ink">
             Main site
           </Link>
+          <AccountMenu />
         </nav>
       </header>
       <main className="flex-1">{children}</main>

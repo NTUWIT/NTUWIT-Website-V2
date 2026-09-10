@@ -18,6 +18,12 @@ import {
   SendIcon,
   WrenchIcon,
 } from "@/components/ide/icons";
+import {
+  Mark,
+  TabButton,
+  TONE,
+  type Tone,
+} from "@/components/ide/primitives";
 import { useTheme } from "@/components/ide/theme";
 
 import {
@@ -198,6 +204,10 @@ const ERROR_TEXT: Record<string, { title: string; body: string }> = {
   INVALID: {
     title: "That input wasn't readable",
     body: "Custom input has to be a JSON array with one value per parameter, each of the type the problem asks for. For a function taking a list of numbers that is [[1, 2, 3]].",
+  },
+  SESSION_CLOSED: {
+    title: "The session is closed",
+    body: "Running and submitting are only open while the session timer is running. Nothing you have already scored is affected.",
   },
   RATE_LIMITED: {
     title: "Take a breath",
@@ -421,15 +431,20 @@ function EditorPane({
         </button>
 
         {!signedIn && (
-          <span className="text-sm text-ide-ink-3">Sign in to run or submit.</span>
+          <a
+            href="/sign-in?next=/ide"
+            className="rounded-control px-2.5 py-2 text-sm text-ide-accent-ink transition hover:bg-ide-accent-quiet"
+          >
+            Sign in to run or submit
+          </a>
         )}
 
-        <div className="ml-auto flex items-center gap-5">
+        <div className="flex w-full items-center gap-3 sm:ml-auto sm:w-auto sm:gap-5">
           <button
             type="button"
             onClick={onRun}
             disabled={disabled}
-            className="flex min-w-30 items-center justify-center gap-2 rounded-control bg-ide-panel px-4 py-2.5 text-sm font-medium text-ide-ink shadow-ide-panel transition hover:bg-ide-panel-2 disabled:opacity-40 disabled:shadow-none"
+            className="flex flex-1 items-center justify-center gap-2 rounded-control bg-ide-panel px-4 py-2.5 text-sm font-medium text-ide-ink shadow-ide-panel transition hover:bg-ide-panel-2 disabled:opacity-40 disabled:shadow-none sm:min-w-30 sm:flex-none"
           >
             {busy === "run" ? (
               <Working label="Running" />
@@ -445,7 +460,7 @@ function EditorPane({
             type="button"
             onClick={onSubmit}
             disabled={disabled}
-            className={`flex min-w-36 items-center justify-center gap-2 rounded-control px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40 disabled:shadow-none ${
+            className={`flex flex-1 items-center justify-center gap-2 rounded-control px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40 disabled:shadow-none sm:min-w-36 sm:flex-none ${
               confirming
                 ? "bg-ide-warn-quiet text-ide-warn"
                 : "bg-ide-accent text-ide-on-accent hover:brightness-105"
@@ -481,6 +496,10 @@ function EditorPane({
             monaco.editor.defineTheme("wit-dark", MONACO_THEMES.dark as never);
           }}
           options={{
+            // The editor is hidden and shown by the tab strip below `lg`, and
+            // resized by the split handle above it; without this it keeps
+            // whatever size it had when it first mounted.
+            automaticLayout: true,
             minimap: { enabled: false },
             fontSize: 14,
             lineHeight: 1.75,
@@ -501,7 +520,7 @@ function EditorPane({
 
       {/* The shelf: the one place on this half of the screen with depth,
           because it is the one place that answers you. */}
-      <section className="mt-2 flex min-h-56 flex-[2] flex-col overflow-hidden rounded-ide-panel bg-ide-panel shadow-ide-panel">
+      <section className="mt-2 flex min-h-40 flex-[2] flex-col overflow-hidden rounded-panel bg-ide-panel shadow-ide-panel sm:min-h-56">
         <div className="flex shrink-0 items-center gap-0.5 px-3 pt-2.5">
           <TabButton active={tab === "result"} onClick={() => setTab("result")}>
             Result
@@ -536,28 +555,6 @@ function EditorPane({
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex items-center gap-1.5 rounded-control px-2.5 py-1.5 text-sm transition ${
-        active ? "bg-ide-panel-2 font-medium text-ide-ink" : "text-ide-ink-3 hover:text-ide-ink-2"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
 function Working({ label }: { label: string }) {
   return (
     <span className="flex items-center justify-center gap-2">
@@ -584,7 +581,11 @@ function CustomInput({
         next <span className="font-medium text-ide-ink">Run</span>. It is
         never compared and never scored.
       </p>
+      <label className="sr-only" htmlFor="custom-input">
+        Your own arguments, as a JSON array
+      </label>
       <textarea
+        id="custom-input"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         rows={3}
@@ -595,7 +596,7 @@ function CustomInput({
       <button
         type="button"
         onClick={() => onChange(example)}
-        className="mt-2 rounded-control px-1.5 py-1 text-xs text-ide-ink-3 transition hover:text-ide-ink-2"
+        className="mt-2 rounded-control px-2 py-2 text-xs text-ide-ink-3 transition hover:bg-ide-panel-2 hover:text-ide-ink-2"
       >
         Start from sample 1: <span className="font-mono">{example}</span>
       </button>
@@ -624,24 +625,6 @@ const VERDICT_HINT: Record<string, string> = {
   compile_error: "Your code didn't build. The compiler's own message is below.",
 };
 
-type Tone = "pass" | "warn" | "fail" | "info" | "quiet";
-
-const ICON: Record<Tone, (props: { className?: string }) => React.ReactElement> = {
-  pass: CheckIcon,
-  warn: PartialIcon,
-  fail: CrossIcon,
-  info: BeakerIcon,
-  quiet: ClockIcon,
-};
-
-const TONE: Record<Tone, { text: string; quiet: string; bar: string }> = {
-  pass: { text: "text-ide-pass", quiet: "bg-ide-pass-quiet", bar: "bg-ide-pass" },
-  warn: { text: "text-ide-warn", quiet: "bg-ide-warn-quiet", bar: "bg-ide-warn" },
-  fail: { text: "text-ide-fail", quiet: "bg-ide-fail-quiet", bar: "bg-ide-fail" },
-  info: { text: "text-ide-info", quiet: "bg-ide-info-quiet", bar: "bg-ide-info" },
-  quiet: { text: "text-ide-ink-3", quiet: "bg-ide-panel-2", bar: "bg-ide-ink-3" },
-};
-
 const VERDICT_TONE: Record<string, Tone> = {
   accepted: "pass",
   wrong_answer: "fail",
@@ -649,19 +632,6 @@ const VERDICT_TONE: Record<string, Tone> = {
   compile_error: "fail",
   time_limit_exceeded: "warn",
 };
-
-/** State is never colour alone: a mark, a word and a count, every time. */
-function Mark({ tone, children }: { tone: Tone; children: React.ReactNode }) {
-  const Icon = ICON[tone];
-  return (
-    <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${TONE[tone].text}`}>
-      <span className={`flex h-5 w-5 items-center justify-center rounded-full ${TONE[tone].quiet}`}>
-        <Icon className="h-3 w-3" />
-      </span>
-      {children}
-    </span>
-  );
-}
 
 function Results({
   run,
@@ -697,7 +667,7 @@ function Results({
       <div className="settle p-5">
         {/* The one heroic line on this screen. It does not shrink. */}
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <h2 className={`font-ide-display text-3xl font-semibold tracking-tight ${TONE[tone].text}`}>
+          <h2 className={`font-ide-display text-2xl font-semibold tracking-tight sm:text-3xl ${TONE[tone].text}`}>
             {verdictText(submit.verdict)}
           </h2>
           <p className="tnum text-sm text-ide-ink-2">
@@ -766,7 +736,7 @@ function Results({
           </p>
         </div>
 
-        <div className="settle-2 mt-4 divide-y divide-hairline border-t border-ide-hairline">
+        <div className="settle-2 mt-4 divide-y divide-ide-hairline border-t border-ide-hairline">
           {samples.map((test) => (
             <TestRow key={test.index} test={test} title={`Sample ${test.index + 1}`} />
           ))}
@@ -884,7 +854,7 @@ function History({
   }
 
   return (
-    <ul className="divide-y divide-hairline px-5">
+    <ul className="divide-y divide-ide-hairline px-4 sm:px-5">
       {entries.map((entry) => {
         const tone: Tone =
           entry.status === "accepted" ? "pass" : entry.passedCount > 0 ? "warn" : "fail";
@@ -911,7 +881,7 @@ function History({
             <button
               type="button"
               onClick={() => onRestore(entry.source)}
-              className="rounded-control px-2 py-1 text-xs text-ide-ink-3 transition hover:text-ide-accent"
+              className="rounded-control px-2.5 py-2 text-xs text-ide-ink-3 transition hover:bg-ide-panel hover:text-ide-accent"
             >
               Open in editor
             </button>

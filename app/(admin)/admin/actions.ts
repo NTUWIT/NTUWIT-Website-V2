@@ -16,8 +16,10 @@ import {
   setEventEndsAt,
   updateProblem,
 } from "@/lib/db/queries";
-import { LANGUAGES } from "@/lib/languages";
+import { runTests } from "@/lib/judge/runner";
+import { LANGUAGES, type Language } from "@/lib/languages";
 import { PARAM_TYPES } from "@/lib/problems/signature";
+import { MAX_SOURCE_BYTES } from "@/lib/validation";
 import { starterCodeFor } from "@/lib/problems/starter";
 import { validateProblem } from "@/lib/problems/validate";
 
@@ -170,6 +172,19 @@ export async function removeProblem(problemId: string): Promise<ActionResult> {
 
 /* ---------- authoring ---------- */
 
+const signatureShape = z.object({
+  name: z.string().regex(/^[a-z][a-z0-9_]*$/, "The function name must be snake_case."),
+  params: z
+    .array(
+      z.object({
+        name: z.string().regex(/^[a-z][a-z0-9_]*$/, "Parameter names must be snake_case."),
+        type: z.enum(PARAM_TYPES),
+      }),
+    )
+    .max(8),
+  returns: z.enum(PARAM_TYPES),
+});
+
 const draft = z.object({
   /** Present when editing; absent when creating. */
   id: z.uuid().optional(),
@@ -185,18 +200,7 @@ const draft = z.object({
   memoryLimitKb: z.number().int().min(16_384).max(524_288),
   order: z.number().int().min(0).max(999),
   statementMd: z.string().trim().min(20, "Write a statement so participants know what to do."),
-  signature: z.object({
-    name: z.string().regex(/^[a-z][a-z0-9_]*$/, "The function name must be snake_case."),
-    params: z
-      .array(
-        z.object({
-          name: z.string().regex(/^[a-z][a-z0-9_]*$/, "Parameter names must be snake_case."),
-          type: z.enum(PARAM_TYPES),
-        }),
-      )
-      .max(8),
-    returns: z.enum(PARAM_TYPES),
-  }),
+  signature: signatureShape,
   tests: z
     .array(
       z.object({
@@ -259,6 +263,78 @@ export async function saveProblem(input: unknown): Promise<ActionResult> {
       ? "Saved. Anyone with the problem open sees the change on their next run."
       : `Created. Put it in a set and activate that set to open it to participants. Starter code was generated for all ${LANGUAGES.length} languages.`,
   };
+}
+
+/**
+ * Runs a reference solution against the author's own test cases, on the real
+ * judge, before the problem is saved.
+ *
+ * Every serious problem-setting tool requires this: HackerRank will not publish
+ * a question until an uploaded solution has been run against its tests, and
+ * Polygon calls it verification. It is the only thing that catches a wrong
+ * expected answer, which is the failure that takes out a whole problem
+ * mid-event and looks like everybody's code is broken.
+ */
+export type VerifyResult =
+  | { ok: true; passed: number; total: number; runtimeMs: number;
+      tests: { index: number; passed: boolean; verdict: string; expected: string; actual: string; stderr: string }[] }
+  | { ok: false; errors: string[] };
+
+export async function verifySolution(input: {
+  language: Language;
+  source: string;
+  signature: unknown;
+  tests: { stdin: string; expectedStdout: string }[];
+  timeLimitMs: number;
+}): Promise<VerifyResult> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { ok: false, errors: ["You are not signed in as an admin."] };
+  }
+
+  const shape = z.object({
+    language: z.enum(LANGUAGES),
+    source: z.string().min(1, "Paste a solution first.").max(MAX_SOURCE_BYTES),
+    signature: signatureShape,
+    tests: z.array(z.object({ stdin: z.string(), expectedStdout: z.string() })).min(1),
+    timeLimitMs: z.number().int().min(500).max(7_000),
+  });
+
+  const parsed = shape.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, errors: parsed.error.issues.map((issue) => issue.message) };
+  }
+
+  try {
+    const result = await runTests({
+      language: parsed.data.language,
+      source: parsed.data.source,
+      signature: parsed.data.signature,
+      tests: parsed.data.tests,
+      // The author wrote these tests; showing them their own data is the point.
+      revealActual: true,
+      timeLimitMs: parsed.data.timeLimitMs,
+      memoryLimitKb: 131072,
+    });
+
+    return {
+      ok: true,
+      passed: result.passedCount,
+      total: result.totalCount,
+      runtimeMs: result.runtimeMs,
+      tests: result.outcomes.map((outcome) => ({
+        index: outcome.index,
+        passed: outcome.passed,
+        verdict: outcome.verdict,
+        expected: parsed.data.tests[outcome.index]?.expectedStdout ?? "",
+        actual: outcome.actual ?? "",
+        stderr: outcome.stderr ?? "",
+      })),
+    };
+  } catch {
+    return { ok: false, errors: ["The judge could not be reached. Try again in a moment."] };
+  }
 }
 
 /** How many attempts a problem already has, so the console can warn first. */

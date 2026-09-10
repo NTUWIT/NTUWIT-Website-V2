@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Compile once per submission, in Piston's own compile stage (10s budget), so
+# the run stage pays only JVM startup instead of recompiling the source for
+# every single test case. The stock package had no compile script and relied on
+# `java Main.java` single-file mode, which recompiles every run.
+javac -encoding UTF-8 "$@"

@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { Show, SignInButton, UserButton } from "@clerk/nextjs";
+import { Show } from "@clerk/nextjs";
+
+import { AccountMenu } from "@/components/ide/AccountMenu";
 
 import { EventTimer } from "@/components/ide/event-timer";
 import { ThemeToggle } from "@/components/ide/theme";
@@ -24,27 +26,27 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <img src="/wit-logo.png" alt="" className="h-5 w-5 object-contain" />
             <span className="text-[0.95rem] font-semibold tracking-tight">WIT IDE</span>
           </Link>
+          <Link
+            href="/"
+            className="rounded-control px-2.5 py-2 text-sm text-ide-ink-3 transition hover:bg-ide-panel-2 hover:text-ide-ink"
+          >
+            Main site
+          </Link>
         </nav>
 
         <div className="flex items-center gap-1.5">
           <EventTimer endsAt={endsAt ? endsAt.toISOString() : null} />
           <ThemeToggle />
           <Show when="signed-out">
-            {/* Modal keeps sign-in on the page: the default redirect mode
-                sends participants to the hosted account portal. */}
-            <SignInButton mode="modal">
-              <button
-                type="button"
-                className="ml-1 cursor-pointer rounded-control bg-ide-accent px-3.5 py-1.5 text-sm font-medium text-ide-on-accent transition hover:brightness-105"
-              >
-                Sign in
-              </button>
-            </SignInButton>
+            <Link
+              href="/sign-in"
+              className="ml-1 rounded-control bg-ide-accent px-4 py-2 text-sm font-semibold text-ide-on-accent transition hover:brightness-105"
+            >
+              Sign in
+            </Link>
           </Show>
           <Show when="signed-in">
-            <span className="ml-1 flex items-center">
-              <UserButton />
-            </span>
+            <AccountMenu />
           </Show>
         </div>
       </header>

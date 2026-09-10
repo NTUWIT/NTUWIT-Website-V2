@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# The compile stage already produced the .class files; run the entry class.
+file=$1
+shift
+java -XX:TieredStopAtLevel=1 -XX:+UseSerialGC "$(basename "$file" .java)" "$@"

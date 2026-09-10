@@ -10,6 +10,7 @@ import { Send, Globe, ArrowUpRight, Menu, X } from "lucide-react";
 import { Github, Instagram, Linkedin } from "./BrandIcons";
 
 import { NavLink } from "./NavLink";
+import { SiteAccount } from "./SiteAccount";
 
 const NAV = [
   { to: "/", label: "Home" },
@@ -17,12 +18,15 @@ const NAV = [
   { to: "/events", label: "Events" },
   { to: "/beyond-binary", label: "Beyond Binary" },
   { to: "/recruit", label: "Recruitment" },
+  { to: "/ide", label: "WIT IDE" },
 ];
 
 export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -46,8 +50,13 @@ export function SiteHeader() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setMobileMenuOpen(false);
+        triggerRef.current?.focus();
       }
     };
+
+    // The first link in the sheet takes focus, so the links are the next thing
+    // reached rather than the rest of the page.
+    sheetRef.current?.querySelector<HTMLElement>("a, button")?.focus();
 
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -87,7 +96,7 @@ export function SiteHeader() {
             </span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1">
+          <nav aria-label="Main" className="hidden lg:flex items-center gap-1">
             {NAV.map((n) => (
               <NavLink
                 key={n.to}
@@ -101,28 +110,40 @@ export function SiteHeader() {
             ))}
           </nav>
 
-          <Link
-            href="/recruit#recruitment-form"
-            className="hidden md:inline-flex items-center gap-1.5 rounded-full bg-ink text-background px-4 py-2 text-[11px] font-semibold uppercase hover:bg-primary-deep hover:text-ink transition-colors"
-          >
-            Join WIT <ArrowUpRight size={14} />
-          </Link>
+          <div className="hidden lg:flex items-center gap-2">
+            <SiteAccount />
+            <Link
+              href="/recruit#recruitment-form"
+              className="inline-flex items-center gap-1.5 rounded-full bg-ink text-background px-4 py-2 text-[11px] font-semibold uppercase hover:bg-primary-deep hover:text-ink transition-colors"
+            >
+              Join WIT <ArrowUpRight size={14} />
+            </Link>
+          </div>
 
           {/* Mobile menu */}
-          <div ref={mobileMenuRef} className="md:hidden relative">
+          <div ref={mobileMenuRef} className="lg:hidden relative">
             <button
               type="button"
               className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-hairline bg-background/80 text-ink shadow-soft backdrop-blur transition-colors hover:bg-blush"
+              ref={triggerRef}
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-navigation"
-              onClick={() => setMobileMenuOpen((open) => !open)}
+              onClick={() =>
+                setMobileMenuOpen((open) => {
+                  // Closing returns focus to the control that opened it.
+                  if (open) triggerRef.current?.focus();
+                  return !open;
+                })
+              }
             >
               {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
 
             {mobileMenuOpen && (
               <nav
+                ref={sheetRef}
+                aria-label="Mobile"
                 id="mobile-navigation"
                 className="absolute right-0 top-12 z-50 w-60 rounded-lg border border-hairline bg-background/95 p-2 shadow-pop backdrop-blur-md"
               >
@@ -146,6 +167,7 @@ export function SiteHeader() {
                   >
                     Join WIT
                   </Link>
+                  <SiteAccount className="mt-1 w-full text-center" />
                 </div>
               </nav>
             )}

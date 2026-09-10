@@ -1,9 +1,10 @@
 import "server-only";
 
-import { and, asc, desc, eq, isNotNull, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 import type { Language } from "@/lib/languages";
 import type { Signature } from "@/lib/problems/signature";
+import type { SessionWindow } from "@/lib/session";
 import { db } from "./client";
 import { eventSettings, problemSets, problems, scores, submissions, testCases } from "./schema";
 
@@ -231,6 +232,16 @@ export async function getEventEndsAt(): Promise<Date | null> {
  * The clock as the console needs to render it. Reading the wall clock belongs
  * here rather than in a component body, where it counts as impure render.
  */
+/** The session window, for the judge routes and the console. */
+export async function getSessionWindow(): Promise<SessionWindow> {
+  const [row] = await db
+    .select({ startsAt: eventSettings.startsAt, endsAt: eventSettings.endsAt })
+    .from(eventSettings)
+    .where(eq(eventSettings.id, 1))
+    .limit(1);
+  return { startsAt: row?.startsAt ?? null, endsAt: row?.endsAt ?? null };
+}
+
 export async function getEventClock() {
   const endsAt = await getEventEndsAt();
   const running = endsAt !== null && endsAt.getTime() > Date.now();
@@ -243,12 +254,17 @@ export async function getEventClock() {
   };
 }
 
-/** Starts, extends, or clears the countdown. Pass null to stop the clock. */
+/**
+ * Starts, extends, or clears the countdown without touching what is open.
+ * Starting one opens the window now; clearing it removes the window entirely,
+ * which returns the session to untimed rather than permanently ended.
+ */
 export async function setEventEndsAt(endsAt: Date | null) {
+  const values = { startsAt: endsAt ? new Date() : null, endsAt };
   await db
     .insert(eventSettings)
-    .values({ id: 1, endsAt })
-    .onConflictDoUpdate({ target: eventSettings.id, set: { endsAt } });
+    .values({ id: 1, ...values })
+    .onConflictDoUpdate({ target: eventSettings.id, set: values });
 }
 
 /**
@@ -364,6 +380,8 @@ export async function setActiveSelection(args: {
     id: 1,
     activeSetId: args.setId,
     activeProblemId: args.setId ? null : args.problemId,
+    // A timer implies a window; without one there is nothing to start.
+    startsAt: args.endsAt ? new Date() : null,
     endsAt: args.endsAt,
   };
   await db
