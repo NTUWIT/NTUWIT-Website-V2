@@ -19,7 +19,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const endsAt = await getEventEndsAt();
 
   return (
-    <div className="ide-surface flex min-h-screen flex-col">
+    // A fixed height, not a minimum: with min-h-screen a long statement grew the
+    // whole page and stretched the editor with it, so neither pane scrolled.
+    <div className="ide-surface flex h-dvh flex-col">
       <header className="flex h-13 shrink-0 items-center justify-between gap-4 px-4">
         <nav className="flex items-center gap-1">
           <Link href="/" className="flex items-center gap-2.5 px-1 py-1" aria-label="Back to the main site">
@@ -50,7 +52,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Show>
         </div>
       </header>
-      <main className="flex min-h-0 flex-1 flex-col">{children}</main>
+      {/* Pages taller than the screen, like the leaderboard, scroll here. */}
+      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</main>
     </div>
   );
 }

@@ -124,7 +124,7 @@ export function Console({
               </p>
             </div>
 
-            <ul className="divide-y divide-ide-hairline border-t border-ide-hairline">
+            <ul className="max-h-80 divide-y divide-ide-hairline overflow-y-auto overscroll-contain border-t border-ide-hairline">
               {openProblems.map((problem) => (
                 <li key={problem.id} className="flex items-center gap-3 px-5 py-2.5">
                   <span className="min-w-0 flex-1 truncate text-sm">{problem.title}</span>
@@ -213,6 +213,8 @@ export function Console({
               {sets.map((set) => {
                 const members = problems.filter((problem) => problem.setId === set.id);
                 const live = activeSetId === set.id;
+                // Titles named in the one-line summary before "and N more".
+                const PREVIEW = 4;
                 return (
                   <li
                     key={set.id}
@@ -225,8 +227,28 @@ export function Console({
                       <p className="mt-0.5 text-xs text-ide-ink-3">
                         {members.length === 0
                           ? "No problems in this set"
-                          : members.map((problem) => problem.title).join(", ")}
+                          : members
+                              .slice(0, PREVIEW)
+                              .map((problem) => problem.title)
+                              .join(", ") +
+                            (members.length > PREVIEW ? `, and ${members.length - PREVIEW} more` : "")}
                       </p>
+                      {/* The full list on demand, in a box that scrolls rather
+                          than a sentence that runs down the page. */}
+                      {members.length > PREVIEW && (
+                        <details className="mt-1.5 text-xs">
+                          <summary className="cursor-pointer text-ide-ink-3 hover:text-ide-ink">
+                            Show all {members.length}
+                          </summary>
+                          <ol className="mt-2 max-h-48 list-decimal overflow-y-auto overscroll-contain rounded-inset bg-ide-panel-2 py-2 pr-3 pl-8 text-ide-ink-2">
+                            {members.map((problem) => (
+                              <li key={problem.id} className="py-0.5">
+                                {problem.title}
+                              </li>
+                            ))}
+                          </ol>
+                        </details>
+                      )}
                     </div>
 
                     <span className="tnum text-xs text-ide-ink-3">
@@ -263,7 +285,7 @@ export function Console({
                 <h3 className="mt-4 px-2 pb-1 text-sm font-medium text-ide-ink-2">
                   Not in a set
                 </h3>
-                <ul className="space-y-1.5">
+                <ul className="max-h-[32rem] space-y-1.5 overflow-y-auto overscroll-contain">
                   {unassigned.map((problem) => (
                     <LooseProblemRow
                       key={problem.id}

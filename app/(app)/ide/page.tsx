@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import { auth } from "@clerk/nextjs/server";
 
 import { Editor } from "@/components/ide/editor";
+import { ProblemList } from "@/components/ide/problem-list";
 import { ChevronIcon } from "@/components/ide/icons";
 import { Split } from "@/components/ide/split";
 import {
@@ -110,43 +111,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             )}
 
             {all.length > 1 && (
-              <nav className="mt-10">
-                <h2 className="font-ide-display text-base font-semibold text-ide-ink">
-                  Other problems
-                </h2>
-                <ul className="mt-3 divide-y divide-ide-hairline border-y border-ide-hairline">
-                  {all.map((entry) => {
-                    const current = entry.slug === problem.slug;
-                    return (
-                      <li key={entry.id}>
-                        <Link
-                          href={`/ide?problem=${entry.slug}`}
-                          aria-current={current ? "page" : undefined}
-                          className="group flex items-center gap-3 py-3 text-sm"
-                        >
-                          <span
-                            aria-hidden
-                            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                              current ? "bg-ide-accent" : "bg-transparent"
-                            }`}
-                          />
-                          <span
-                            className={
-                              current ? "font-medium text-ide-ink" : "text-ide-ink-2 group-hover:text-ide-ink"
-                            }
-                          >
-                            {entry.title}
-                          </span>
-                          <span className="tnum ml-auto text-xs text-ide-ink-3">
-                            {entry.points}
-                          </span>
-                          <ChevronIcon className="h-3.5 w-3.5 text-ide-ink-3 opacity-0 transition group-hover:opacity-100" />
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </nav>
+              <ProblemList
+                entries={all.map(({ id, slug, title, points }) => ({ id, slug, title, points }))}
+                currentSlug={problem.slug}
+              />
             )}
 
             {/* Ranking is not part of a Coding Night. The board still works;
