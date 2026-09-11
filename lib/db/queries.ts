@@ -286,11 +286,14 @@ export async function createProblem(input: {
   order: number;
   tests: { stdin: string; expectedStdout: string; isSample: boolean }[];
 }) {
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(problems)
-      .values({
-        setId: input.setId,
+  // The neon-http driver has no interactive transactions, so the id is chosen
+  // here and both inserts go in one batch, which Neon runs as a single
+  // transaction. A problem without its tests still cannot exist.
+  const id = crypto.randomUUID();
+  await db.batch([
+    db.insert(problems).values({
+      id,
+      setId: input.setId,
         slug: input.slug,
         title: input.title,
         difficulty: input.difficulty,
@@ -301,17 +304,10 @@ export async function createProblem(input: {
         timeLimitMs: input.timeLimitMs,
         memoryLimitKb: input.memoryLimitKb,
         order: input.order,
-      })
-      .returning({ id: problems.id });
-
-    if (!row) throw new Error("insert failed");
-
-    await tx.insert(testCases).values(
-      input.tests.map((test, order) => ({ ...test, problemId: row.id, order })),
-    );
-
-    return row.id;
-  });
+    }),
+    db.insert(testCases).values(input.tests.map((test, order) => ({ ...test, problemId: id, order }))),
+  ]);
+  return id;
 }
 
 
@@ -429,14 +425,14 @@ export async function updateProblem(
     tests: { stdin: string; expectedStdout: string; isSample: boolean }[];
   },
 ) {
-  await db.transaction(async (tx) => {
-    const { tests, ...fields } = input;
-    await tx.update(problems).set(fields).where(eq(problems.id, problemId));
-    await tx.delete(testCases).where(eq(testCases.problemId, problemId));
-    await tx.insert(testCases).values(
-      tests.map((test, order) => ({ ...test, problemId, order })),
-    );
-  });
+  // One batch, which Neon runs as a single transaction: the neon-http driver
+  // has no interactive transactions.
+  const { tests, ...fields } = input;
+  await db.batch([
+    db.update(problems).set(fields).where(eq(problems.id, problemId)),
+    db.delete(testCases).where(eq(testCases.problemId, problemId)),
+    db.insert(testCases).values(tests.map((test, order) => ({ ...test, problemId, order }))),
+  ]);
 }
 
 /** How many attempts exist, so the console can warn before an edit or delete. */

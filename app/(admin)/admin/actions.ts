@@ -183,6 +183,7 @@ const signatureShape = z.object({
     )
     .max(8),
   returns: z.enum(PARAM_TYPES),
+  unordered: z.boolean().optional(),
 });
 
 const draft = z.object({

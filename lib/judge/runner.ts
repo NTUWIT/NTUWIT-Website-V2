@@ -48,13 +48,13 @@ type Test = { stdin: string; expectedStdout: string };
  */
 const CRASH_ON_STDERR = /\b(StackOverflowError|OutOfMemoryError)\b/;
 
-export function classify(result: ExecResult, expected: string): Verdict {
+export function classify(result: ExecResult, expected: string, unordered = false): Verdict {
   if (result.compileError !== null) return "compile_error";
   if (CRASH_ON_STDERR.test(result.stderr)) return "runtime_error";
   // Piston reports a signal (SIGKILL) when the run timeout is hit.
   if (result.signal !== null) return "time_limit_exceeded";
   if (result.exitCode !== 0) return "runtime_error";
-  return outputMatches(result.stdout, expected) ? "accepted" : "wrong_answer";
+  return outputMatches(result.stdout, expected, unordered) ? "accepted" : "wrong_answer";
 }
 
 /**
@@ -104,7 +104,7 @@ export async function runTests(
     }
     runtimeMs += Math.round(performance.now() - startedAt);
 
-    const verdict = classify(result, test.expectedStdout);
+    const verdict = classify(result, test.expectedStdout, args.signature.unordered);
     const passed = verdict === "accepted";
     outcomes.push({
       index,

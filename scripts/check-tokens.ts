@@ -107,7 +107,7 @@ for (const file of [...walk("components/ide"), ...walk("components/admin"), ...w
   for (const utility of UTILITIES) {
     for (const token of SITE_ONLY) {
       const pattern = new RegExp(`(?<![\\w-])${utility}-${token}(?![\\w-])`, "g");
-      for (const _ of source.matchAll(pattern)) {
+      if (pattern.test(source)) {
         crossings.push(`${file}: ${utility}-${token} is a marketing token inside the IDE`);
       }
     }

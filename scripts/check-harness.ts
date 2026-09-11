@@ -2,6 +2,8 @@
 import assert from "node:assert/strict";
 
 import { wrapSource } from "@/lib/judge/harness";
+import { outputMatches } from "@/lib/judge/normalise";
+import { expectedForm, matchesType } from "@/lib/problems/validate";
 import { starterFor } from "@/lib/problems/starter";
 import { camel, type Signature } from "@/lib/problems/signature";
 
@@ -50,5 +52,35 @@ const one = wrapSource({
   signature: { name: "f", params: [{ name: "n", type: "int" }], returns: "int" },
 });
 assert.ok(!one.includes("__eat(',')"), "no separator for a single parameter");
+
+// Node types: built before the call, flattened after, in every language.
+const nodes: Signature = {
+  name: "reverse_list",
+  params: [{ name: "head", type: "ListNode" }, { name: "root", type: "TreeNode" }],
+  returns: "ListNode",
+};
+const pyNodes = wrapSource({ language: "python", source: src, signature: nodes });
+assert.ok(pyNodes.includes("__args[0] = __to_list(__args[0])"), "python builds the list");
+assert.ok(pyNodes.includes("__args[1] = __to_tree(__args[1])"), "python builds the tree");
+assert.ok(pyNodes.includes("__fmt(__from_list(__result))"), "python flattens the returned list");
+assert.ok(wrapSource({ language: "java", source: src, signature: nodes }).includes("serList((ListNode) result)"));
+assert.ok(wrapSource({ language: "cpp", source: src, signature: nodes }).includes("ListNode* __a0 = __rd_list()"));
+assert.ok(starterFor("java", nodes).includes("static ListNode reverseList(ListNode head, TreeNode root)"));
+assert.ok(starterFor("cpp", nodes).includes("do not redefine"), "starter says the nodes are provided");
+
+// Validator: canonical forms for the new types.
+assert.ok(matchesType([3, 9, 20, null, null, 15, 7], "TreeNode"));
+assert.ok(!matchesType([1, null], "TreeNode"), "trailing null is not the printed form");
+assert.ok(!matchesType([null, 1], "TreeNode"), "a null root is written []");
+assert.ok(matchesType({ a: 1 }, "map<string,int>"));
+assert.ok(!matchesType({ a: 1.5 }, "map<string,int>"));
+assert.equal(expectedForm({ b: 1, a: 2 }, "map<string,int>"), '{"a":2,"b":1}');
+assert.equal(expectedForm([1, 2.5], "double[]"), "[1.000000,2.500000]");
+
+// Any-order comparison reorders the outer list only.
+assert.ok(outputMatches("[[2],[1,2],[]]", "[[],[1,2],[2]]", true));
+assert.ok(!outputMatches("[[2,1]]", "[[1,2]]", true), "inner order still matters");
+assert.ok(!outputMatches("[1,2]", "[2,1]"), "ordered by default");
+assert.ok(!outputMatches("[1,1,2]", "[1,2,2]", true), "multiset, not set");
 
 console.log("check-harness: all assertions passed");

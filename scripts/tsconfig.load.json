@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["../*"],
+      "@clerk/nextjs/server": ["./stubs/clerk-server.ts"],
+      "next/cache": ["./stubs/next-cache.ts"]
+    }
+  }
+}

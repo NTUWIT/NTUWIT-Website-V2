@@ -42,6 +42,10 @@ const EXAMPLE_VALUE: Record<ParamType, string> = {
   "bool[]": "[true, false]",
   "string[]": '["a", "b"]',
   "int[][]": "[[1, 2], [3, 4]]",
+  "string[][]": '[["a", "b"], ["c"]]',
+  "map<string,int>": '{"a": 2, "b": 1}',
+  ListNode: "[1, 2, 3]",
+  TreeNode: "[3, 9, 20, null, null, 15, 7]",
 };
 
 /** Human wording for each type, so nobody has to guess what `int[][]` wants. */
@@ -54,7 +58,11 @@ const TYPE_HELP: Record<ParamType, string> = {
   "double[]": "a list of decimals, e.g. [1.5, 2.5]",
   "bool[]": "a list of true/false, e.g. [true, false]",
   "string[]": 'a list of text, e.g. ["a", "b"]',
-  "int[][]": "a grid of whole numbers, e.g. [[1, 2], [3, 4]]",
+  "int[][]": "a grid or graph of whole numbers, e.g. [[1, 2], [3, 4]]",
+  "string[][]": 'a grid or groups of text, e.g. [["a", "b"], ["c"]]',
+  "map<string,int>": 'text keys to whole numbers, e.g. {"a": 2, "b": 1}',
+  ListNode: "a linked list written as its values, e.g. [1, 2, 3]",
+  TreeNode: "a binary tree in level order with null for gaps, e.g. [3, 9, 20, null, null, 15, 7]",
 };
 
 export type ExistingProblem = {
@@ -67,7 +75,7 @@ export type ExistingProblem = {
   timeLimitMs: number;
   order: number;
   statementMd: string;
-  signature: { name: string; params: Param[]; returns: ParamType };
+  signature: { name: string; params: Param[]; returns: ParamType; unordered?: boolean };
   tests: Test[];
   attempts: number;
 };
@@ -93,6 +101,7 @@ export function ProblemWizard({ existing }: { existing?: ExistingProblem }) {
     existing?.signature.params ?? [{ name: "nums", type: "int[]" }],
   );
   const [returns, setReturns] = useState<ParamType>(existing?.signature.returns ?? "int");
+  const [unordered, setUnordered] = useState(existing?.signature.unordered ?? false);
 
   const [statementMd, setStatementMd] = useState(existing?.statementMd ?? "");
   const [tests, setTests] = useState<Test[]>(
@@ -105,10 +114,12 @@ export function ProblemWizard({ existing }: { existing?: ExistingProblem }) {
   const [verifiedShape, setVerifiedShape] = useState<string | null>(null);
 
   const effectiveSlug = slugTouched ? slug : slugify(title);
-  const signature = { name: fnName, params, returns };
+  // Only a list can be compared in any order.
+  const canBeUnordered = returns.endsWith("[]") || returns === "ListNode";
+  const signature = { name: fnName, params, returns, unordered: canBeUnordered && unordered };
   const shape = useMemo(
-    () => JSON.stringify({ tests, params, returns, fnName, timeLimitMs }),
-    [tests, params, returns, fnName, timeLimitMs],
+    () => JSON.stringify({ tests, params, returns, unordered, fnName, timeLimitMs }),
+    [tests, params, returns, unordered, fnName, timeLimitMs],
   );
   const verified = verifiedShape === shape;
 
@@ -454,6 +465,24 @@ export function ProblemWizard({ existing }: { existing?: ExistingProblem }) {
                 ))}
               </select>
             </Field>
+
+            {canBeUnordered && (
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={unordered}
+                  onChange={(event) => setUnordered(event.target.checked)}
+                  className="mt-1 accent-(--ide-accent)"
+                />
+                <span>
+                  Accept the answer in any order
+                  <span className="block text-xs text-ide-ink-3">
+                    For sets, subsets and permutations. Only the outer list is
+                    reordered; each item in it must still match exactly.
+                  </span>
+                </span>
+              </label>
+            )}
           </div>
         )}
 

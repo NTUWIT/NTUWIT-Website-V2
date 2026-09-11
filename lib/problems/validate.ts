@@ -42,13 +42,44 @@ export function matchesType(value: unknown, type: ParamType): boolean {
       return (
         Array.isArray(value) && value.every((row) => matchesType(row, "int[]"))
       );
+    case "string[][]":
+      return Array.isArray(value) && value.every((row) => matchesType(row, "string[]"));
+    case "map<string,int>":
+      return (
+        typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value) &&
+        Object.values(value).every((v) => matchesType(v, "int"))
+      );
+    case "ListNode":
+      return matchesType(value, "int[]");
+    case "TreeNode":
+      // Level order with nulls for missing children. The root is never null and
+      // trailing nulls are trimmed, which is the one form the harness prints.
+      return (
+        Array.isArray(value) &&
+        value.every((v) => v === null || matchesType(v, "int")) &&
+        (value.length === 0 || (value[0] !== null && value.at(-1) !== null))
+      );
   }
 }
 
 /** How the harness prints a return value, so expected output can be checked. */
 export function expectedForm(value: unknown, type: ParamType): string {
   if (type === "double") return (value as number).toFixed(DOUBLE_PRECISION);
+  if (type === "double[]") {
+    return `[${(value as number[]).map((v) => v.toFixed(DOUBLE_PRECISION)).join(",")}]`;
+  }
   if (type === "bool") return value ? "true" : "false";
+  if (type === "map<string,int>") {
+    // Keys are printed sorted in every language, so authors may write them in
+    // any order but the canonical form is the sorted one.
+    const map = value as Record<string, number>;
+    return `{${Object.keys(map)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${map[k]}`)
+      .join(",")}}`;
+  }
   return JSON.stringify(value);
 }
 
