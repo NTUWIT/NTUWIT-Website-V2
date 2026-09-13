@@ -19,7 +19,9 @@
     "check:dsa": "tsx --conditions=react-server --env-file=.env scripts/check-dsa.ts",
     "check:qa": "tsx --conditions=react-server --env-file=.env scripts/check-qa.ts",
     "check:types": "tsx --conditions=react-server --env-file=.env scripts/check-types.ts",
-    "load:bank": "tsx --conditions=react-server --env-file=.env --tsconfig scripts/tsconfig.load.json scripts/load-problem-bank.ts"
+    "load:bank": "tsx --conditions=react-server --env-file=.env --tsconfig scripts/tsconfig.load.json scripts/load-problem-bank.ts",
+    "load:test": "tsx --conditions=react-server --env-file=.env scripts/load-test.ts",
+    "check:capabilities": "tsx --conditions=react-server --env-file=.env scripts/check-capabilities.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.0",

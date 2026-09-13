@@ -15,10 +15,19 @@ services:
       # lib/judge/piston.ts (8000ms).
       PISTON_RUN_TIMEOUT: 6000
       PISTON_COMPILE_TIMEOUT: 10000
+      # Piston kills a run whose stdout or stderr reaches this many bytes. The
+      # default, 1024, is smaller than a sorted list of 200 numbers, and a
+      # participant's debug prints count against it too. Raising it here only
+      # takes effect after `docker compose up -d` on the droplet. Matches
+      # MAX_OUTPUT_BYTES in lib/judge/limits.ts.
+      PISTON_OUTPUT_MAX_SIZE: 65536
     tmpfs:
       - /piston/jobs:exec,uid=1000,gid=1000,mode=711
     volumes:
       - ./data:/piston
+      # Piston hard-codes a 100 KB request limit; this copy raises it to 2 MB.
+      # Create or refresh it with ./patch-body-limit.sh.
+      - ./piston-api-index.js:/piston_api/src/index.js:ro
     # Not published to the host: only Caddy can reach it.
     expose:
       - "2000"

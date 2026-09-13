@@ -12,7 +12,7 @@
 import assert from "node:assert/strict";
 import { writeFileSync } from "node:fs";
 
-import type { ParamType, Signature } from "@/lib/problems/signature";
+import type { Method, ParamType, Provided, ReturnType, Signature } from "@/lib/problems/signature";
 import { starterCodeFor } from "@/lib/problems/starter";
 import { expectedForm, validateProblem } from "@/lib/problems/validate";
 
@@ -24,10 +24,21 @@ type Problem = {
   pattern: string;
   title: string;
   difficulty: Difficulty;
+  /** A function name, or for a design problem the class name. */
   fn: string;
+  /** The function's parameters, or the constructor's. */
   params: [string, ParamType][];
-  returns: ParamType;
-  unordered?: boolean;
+  returns: ReturnType;
+  /** With `returns: "void"`: the parameter changed in place, which is the answer. */
+  mutates?: string;
+  unordered?: boolean | "deep";
+  /** Present on a design problem. */
+  methods?: Method[];
+  /** Interactive problems: values each test carries after the arguments, read by `provided`. */
+  hidden?: [string, ParamType][];
+  provided?: Provided;
+  /** Python `check(args, expected, actual)` for problems with many right answers. */
+  checker?: string;
   brief: string;
   /** The first two are the examples participants see. */
   tests: unknown[][];
@@ -161,6 +172,35 @@ function unionFind(n: number) {
   return { find, union: (a: number, b: number) => { const ra = find(a), rb = find(b); if (ra === rb) return false; parent[ra] = rb; return true; } };
 }
 
+/** Builds a design test: the class and its constructor arguments, then each call. */
+const calls = (cls: string, ctor: unknown[], steps: [string, ...unknown[]][]) => [
+  [cls, ...steps.map(([op]) => op)],
+  [ctor, ...steps.map(([, ...args]) => args)],
+];
+
+/** Depth of an N-ary tree given in LeetCode's level order. */
+function naryDepth(a: (number | null)[]): number {
+  if (!a.length) return 0;
+  type N = { children: N[] };
+  const root: N = { children: [] };
+  const queue: N[] = [root];
+  const depth = new Map<N, number>([[root, 1]]);
+  let i = 2, qi = 0, best = 1;
+  while (i < a.length && qi < queue.length) {
+    const parent = queue[qi++]!;
+    while (i < a.length && a[i] !== null) {
+      const child: N = { children: [] };
+      parent.children.push(child);
+      queue.push(child);
+      depth.set(child, depth.get(parent)! + 1);
+      best = Math.max(best, depth.get(child)!);
+      i++;
+    }
+    i++;
+  }
+  return best;
+}
+
 /* ---------- the bank ---------- */
 
 const P: Problem[] = [
@@ -181,8 +221,8 @@ Return the most water any two walls can hold.
   },
   {
     section: "Array & String", pattern: "Two pointers, same direction", title: "Zeros To The Back", difficulty: "easy",
-    fn: "move_zeros", params: [["nums", "int[]"]], returns: "int[]",
-    brief: `Move every zero to the end of the list, keeping the other numbers in their original order. Return the result.
+    fn: "move_zeros", params: [["nums", "int[]"]], returns: "void", mutates: "nums",
+    brief: `Move every zero to the end of the list, keeping the other numbers in their original order. Do it in place: the judge checks \`nums\` after your function returns.
 
 ### Constraints
 
@@ -279,13 +319,40 @@ Return the fewest rooms needed so no two meetings share a room at the same time.
   },
   {
     section: "Array & String", pattern: "Dutch national flag", title: "Three Colours", difficulty: "medium",
-    fn: "sort_colors", params: [["colors", "int[]"]], returns: "int[]",
-    brief: `The list holds only 0s, 1s and 2s. Return it sorted.
+    fn: "sort_colors", params: [["colors", "int[]"]], returns: "void", mutates: "colors",
+    brief: `The list holds only 0s, 1s and 2s. Sort it in place: the judge checks \`colors\` after your function returns.
 
 ### Constraints
 
 - Do it in one pass without counting, using three pointers: everything before \`low\` is 0, everything after \`high\` is 2.`,
     tests: [[[2, 0, 2, 1, 1, 0]], [[2, 0, 1]], [[0]], [[1, 1, 1]], [[2, 2, 0, 0]], [[]]],
+    ref: (a: number[]) => [...a].sort((x, y) => x - y),
+  },
+  {
+    section: "Array & String", pattern: "Divide and conquer (merge sort)", title: "Sort It Yourself", difficulty: "medium",
+    fn: "merge_sort", params: [["nums", "int[]"]], returns: "int[]",
+    brief: `Return the list sorted from smallest to largest, without using your language's built-in sort.
+
+Merge sort is the classic way: split the list in half, sort each half the same way, then merge the two sorted halves by repeatedly taking the smaller front element.
+
+### Constraints
+
+- The list may be empty, and may contain repeats and negative numbers.
+- Aim for O(n log n). Bubble and insertion sort are O(n²).`,
+    tests: [
+      [[5, 2, 3, 1]],
+      [[5, 1, 1, 2, 0, 0]],
+      [[]],
+      [[1]],
+      [[-3, 10, -3, 0, 7]],
+      [[1, 2, 3, 4, 5]],
+      [[9, 8, 7, 6, 5, 4, 3, 2, 1]],
+      // Deterministic pseudo-random values with repeats and negatives, so the
+      // bank regenerates identically. Sized to the judge: Piston kills a run
+      // whose output reaches 1024 bytes, so a sorted list cannot be much
+      // longer than this until PISTON_OUTPUT_MAX_SIZE is raised on the droplet.
+      [Array.from({ length: 150 }, (_, i) => ((i * 7919 + 104729) % 1001) - 500)],
+    ],
     ref: (a: number[]) => [...a].sort((x, y) => x - y),
   },
   {
@@ -374,9 +441,9 @@ Capitals and lowercase are different letters.
     ref: (a: number[]) => { const seen = new Map<string, number[]>(); for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j++) for (let k = j + 1; k < a.length; k++) if (a[i]! + a[j]! + a[k]! === 0) { const t = [a[i]!, a[j]!, a[k]!].sort((x, y) => x - y); seen.set(t.join(), t); } return [...seen.values()]; },
   },
   {
-    section: "Hashing", pattern: "Grouping by key", title: "Same Letters", difficulty: "medium", unordered: true,
+    section: "Hashing", pattern: "Grouping by key", title: "Same Letters", difficulty: "medium", unordered: "deep",
     fn: "group_anagrams", params: [["words", "string[]"]], returns: "string[][]",
-    brief: `Put words made of exactly the same letters into the same group. Inside each group, keep the words in the order they appeared. The groups may come in any order.
+    brief: `Put words made of exactly the same letters into the same group. The groups, and the words inside each group, may come in any order.
 
 ### Constraints
 
@@ -410,6 +477,40 @@ Treat each value as a pointer to the position it names. The repeat is where that
 - Do not change the list, and use only constant extra space.`,
     tests: [[[1, 3, 4, 2, 2]], [[3, 1, 3, 4, 2]], [[1, 1]], [[2, 2, 2, 2]], [[1, 4, 4, 2, 4]]],
     ref: (a: number[]) => a.find((x, i) => a.indexOf(x) !== i),
+  },
+  {
+    section: "Linked List", pattern: "Fast & slow pointers (cycle detection)", title: "Loop In The Chain", difficulty: "easy",
+    fn: "has_cycle", params: [["head", "ListNode"]], returns: "bool",
+    brief: `Return whether the linked list loops: whether following \`next\` from the head ever comes back to a node already visited.
+
+In the tests a looping list is written \`{"values": [3, 2, 0, -4], "cycleAt": 1}\`, meaning the last node links back to node 1. LeetCode calls this \`pos\`. Your function only receives the head.
+
+### Constraints
+
+- The list may be empty, and values may repeat.
+- Try it in constant extra space, with a slow and a fast pointer.`,
+    tests: [[{ values: [3, 2, 0, -4], cycleAt: 1 }], [[1, 2]], [{ values: [1], cycleAt: 0 }], [[]], [[1, 1, 1]], [{ values: [1, 2, 3, 4, 5], cycleAt: 4 }]],
+    ref: (h: number[] | { values: number[]; cycleAt: number }) => !Array.isArray(h) && h.cycleAt >= 0,
+  },
+  {
+    section: "Linked List", pattern: "Deep copy with random pointers", title: "Copy The Tangled List", difficulty: "medium",
+    fn: "copy_random_list", params: [["head", "RandomList"]], returns: "RandomList",
+    brief: `Each node has a \`next\` pointer and a \`random\` pointer that can point to any node in the list, or to nothing. Return a deep copy: new nodes with the same values, wired the same way.
+
+In the tests a list is written as one \`[value, random]\` pair per node, where \`random\` is the index of the node it points to, or \`null\`.
+
+### Constraints
+
+- The list may be empty.
+- Every node you return must be new. Returning any of the original nodes is a runtime error.`,
+    tests: [
+      [[[7, null], [13, 0], [11, 4], [10, 2], [1, 0]]],
+      [[[1, 1], [2, 0]]],
+      [[[3, null], [3, 0], [3, null]]],
+      [[]],
+      [[[5, null], [6, null]]],
+    ],
+    ref: (a: unknown[]) => a,
   },
   {
     section: "Linked List", pattern: "Reversal in groups", title: "Flip In Groups", difficulty: "hard",
@@ -484,27 +585,33 @@ Treat each value as a pointer to the position it names. The repeat is where that
   },
   {
     section: "Stack & Queue", pattern: "Min stack design", title: "Stack That Knows Its Minimum", difficulty: "medium",
-    fn: "min_stack", params: [["ops", "string[]"], ["values", "int[]"]], returns: "int[]",
-    brief: `Run the operations in order on a stack. \`values[i]\` belongs to \`ops[i]\` and matters only for \`push\` (it is 0 otherwise).
+    fn: "MinStack", params: [], returns: "void",
+    methods: [
+      { name: "push", params: [{ name: "val", type: "int" }], returns: "void" },
+      { name: "pop", params: [], returns: "void" },
+      { name: "top", params: [], returns: "int" },
+      { name: "get_min", params: [], returns: "int" },
+    ],
+    brief: `Design a stack that can also report its smallest value.
 
-- \`push\`: put the value on top
-- \`pop\`: remove the top
-- \`top\`: report the top value
-- \`min\`: report the smallest value in the stack
+- \`push(val)\`: put a value on top
+- \`pop()\`: remove the top value
+- \`top()\`: return the top value
+- \`get_min()\`: return the smallest value in the stack
 
-Return every reported value, in order.
+Each test creates a \`MinStack\`, calls its methods in order, and checks what each one returns.
 
 ### Constraints
 
-- \`pop\`, \`top\` and \`min\` are never called on an empty stack.
-- Every operation must take constant time. Scanning the stack for \`min\` is not allowed.`,
+- \`pop\`, \`top\` and \`get_min\` are never called on an empty stack.
+- Every method must take constant time. Scanning the stack in \`get_min\` is not allowed.`,
     tests: [
-      [["push", "push", "push", "min", "pop", "top", "min"], [-2, 0, -3, 0, 0, 0, 0]],
-      [["push", "min"], [5, 0]],
-      [["push", "push", "min", "pop", "min"], [1, 1, 0, 0, 0]],
-      [["push", "push", "push", "pop", "pop", "min", "top"], [3, 2, 1, 0, 0, 0, 0]],
+      calls("MinStack", [], [["push", -2], ["push", 0], ["push", -3], ["get_min"], ["pop"], ["top"], ["get_min"]]),
+      calls("MinStack", [], [["push", 5], ["get_min"]]),
+      calls("MinStack", [], [["push", 1], ["push", 1], ["get_min"], ["pop"], ["get_min"]]),
+      calls("MinStack", [], [["push", 3], ["push", 2], ["push", 1], ["pop"], ["pop"], ["get_min"], ["top"]]),
     ],
-    ref: (ops: string[], vals: number[]) => { const st: number[] = [], out: number[] = []; ops.forEach((op, i) => { if (op === "push") st.push(vals[i]!); else if (op === "pop") st.pop(); else if (op === "top") out.push(st[st.length - 1]!); else out.push(Math.min(...st)); }); return out; },
+    ref: (ops: string[], vals: number[][]) => { const st: number[] = []; return ops.map((op, i) => { if (op === "push") st.push(vals[i]![0]!); else if (op === "pop") st.pop(); else if (op === "top") return st[st.length - 1]; else if (op === "get_min") return Math.min(...st); return null; }); },
   },
 
   /* ===== Binary Search ===== */
@@ -532,6 +639,30 @@ Return the smallest \`k\` that finishes every pile within \`hours\`.
 - Piles can be huge, so trying every \`k\` from 1 upwards is too slow.`,
     tests: [[[3, 6, 7, 11], 8], [[30, 11, 23, 4, 20], 5], [[30, 11, 23, 4, 20], 6], [[1000000000], 2], [[1, 1, 1, 1], 4], [[312884470], 968709470]],
     ref: minSpeed,
+  },
+  {
+    section: "Binary Search", pattern: "Interactive binary search", title: "First Bad Build", difficulty: "easy",
+    fn: "first_bad_version", params: [["n", "int"]], returns: "int",
+    hidden: [["bad", "int"]],
+    provided: {
+      functions: [{ name: "is_bad_version", params: [{ name: "version", type: "int" }], returns: "bool" }],
+      code: {
+        python: `def is_bad_version(version):\n    return version >= bad\n`,
+        javascript: `function isBadVersion(version) {\n  return version >= bad;\n}\n`,
+        cpp: `bool isBadVersion(long long version) {\n    return version >= Hidden::bad;\n}\n`,
+        java: `class Provided {\n    static boolean isBadVersion(long version) {\n        return version >= Hidden.bad;\n    }\n}\n`,
+      },
+    },
+    brief: `Builds are numbered 1 to \`n\`. At some point a build broke, and every build after it is broken too. Return the first broken build.
+
+You cannot see which one it is. Call \`is_bad_version(version)\`, which the judge provides, to ask whether a build is broken.
+
+### Constraints
+
+- There is always at least one broken build.
+- \`n\` can be over two billion, so asking about every build in turn is far too slow.`,
+    tests: [[5, 4], [1, 1], [2126753390, 1702766719], [10, 1], [100000000, 99999999]],
+    ref: (_n: number, bad: number) => bad,
   },
   {
     section: "Binary Search", pattern: "Search in a rotated sorted array", title: "Turned Around", difficulty: "medium",
@@ -581,6 +712,24 @@ Return the smallest \`k\` that finishes every pile within \`hours\`.
     ref: (a: (number | null)[]) => { const out: number[] = []; let q = [tree(a)].filter(Boolean) as Node[]; while (q.length) { out.push(sum(q.map((n) => n.val)) / q.length); q = q.flatMap((n) => [n.left, n.right].filter(Boolean) as Node[]); } return out; },
   },
   {
+    section: "Trees", pattern: "N-ary tree DFS", title: "How Deep Does It Branch", difficulty: "easy",
+    fn: "max_depth", params: [["root", "NaryTree"]], returns: "int",
+    brief: `Each node can have any number of children. Return the number of nodes on the longest path from the root down to a leaf.
+
+In the tests a tree is written in level order: the root, then \`null\`, then each node's children followed by \`null\`.
+
+### Constraints
+
+- The tree may be empty.`,
+    tests: [
+      [[1, null, 3, 2, 4, null, 5, 6]],
+      [[1, null, 2, 3, 4, 5, null, null, 6, 7, null, 8, null, 9, 10, null, null, 11, null, 12, null, 13, null, null, 14]],
+      [[]],
+      [[1]],
+    ],
+    ref: naryDepth,
+  },
+  {
     section: "Trees", pattern: "Binary search tree operations", title: "Insert Into The Search Tree", difficulty: "medium",
     fn: "insert_into_bst", params: [["root", "TreeNode"], ["value", "int"]], returns: "TreeNode",
     brief: `The tree is a binary search tree: everything left of a node is smaller, everything right is bigger. Insert \`value\` as a new leaf in the only place it can go, and return the root.
@@ -627,7 +776,7 @@ Return the smallest \`k\` that finishes every pile within \`hours\`.
   },
   {
     section: "Trees", pattern: "Trie: word search", title: "Words In The Grid", difficulty: "hard", unordered: true,
-    fn: "find_words", params: [["board", "string[][]"], ["words", "string[]"]], returns: "string[]",
+    fn: "find_words", params: [["board", "char[][]"], ["words", "string[]"]], returns: "string[]",
     brief: `Return every word from the list that can be traced on the board. A word is traced by moving up, down, left or right between letters without reusing a cell. The words may come in any order.
 
 ### Constraints
@@ -684,6 +833,64 @@ Return the minutes until no fresh orange is left, or -1 if some can never rot.
 - A grid with no fresh oranges takes 0 minutes.`,
     tests: [[[[2, 1, 1], [1, 1, 0], [0, 1, 1]]], [[[2, 1, 1], [0, 1, 1], [1, 0, 1]]], [[[0, 2]]], [[[1]]], [[[2, 2], [1, 1], [0, 0], [2, 0]]]],
     ref: (g0: number[][]) => { const g = g0.map((r) => [...r]); let q: number[][] = []; g.forEach((r, i) => r.forEach((v, j) => { if (v === 2) q.push([i, j]); })); let t = 0; for (;;) { const next: number[][] = []; for (const [i, j] of q) for (const [di, dj] of DIRS) { const a = i! + di, b = j! + dj; if (g[a]?.[b] === 1) { g[a]![b] = 2; next.push([a, b]); } } if (!next.length) break; q = next; t++; } return g.some((r) => r.includes(1)) ? -1 : t; },
+  },
+  {
+    section: "Graphs", pattern: "DFS on a grid (deep recursion)", title: "Biggest Island", difficulty: "medium",
+    fn: "max_area_of_island", params: [["grid", "int[][]"]], returns: "int",
+    brief: `The grid holds 1 for land and 0 for water. An island is land connected up, down, left or right. Return the area of the largest island, or 0 if there is none.
+
+### Constraints
+
+- The largest test is a 90 × 90 grid of land, so a recursive search goes thousands of calls deep. The judge allows deep recursion in every language, so a plain recursive DFS is fine.`,
+    tests: [
+      [[[0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0], [0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0], [0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0]]],
+      [[[0, 0, 0, 0, 0, 0, 0, 0]]],
+      [[[1]]],
+      [[[1, 1, 0], [1, 0, 0], [0, 0, 1]]],
+      [Array.from({ length: 90 }, () => new Array(90).fill(1))],
+    ],
+    ref: (g0: number[][]) => { const g = g0.map((r) => [...r]); let best = 0; for (let r = 0; r < g.length; r++) for (let c = 0; c < g[0]!.length; c++) { if (g[r]![c] !== 1) continue; let area = 0; const stack = [[r, c]]; g[r]![c] = 0; while (stack.length) { const [i, j] = stack.pop()!; area++; for (const [di, dj] of DIRS) { const a = i! + di, b = j! + dj; if (g[a]?.[b] === 1) { g[a]![b] = 0; stack.push([a, b]); } } } best = Math.max(best, area); } return best; },
+  },
+  {
+    section: "Graphs", pattern: "Graph deep copy (BFS / DFS)", title: "Copy The Network", difficulty: "medium",
+    fn: "clone_graph", params: [["node", "Graph"]], returns: "Graph",
+    brief: `You are given one node of a connected, undirected graph. Each node has a value and a list of neighbours. Return a deep copy of the whole graph, starting from the copy of the node you were given.
+
+In the tests a graph is an adjacency list: row \`i\` lists the values of node \`i + 1\`'s neighbours, and you receive node 1.
+
+### Constraints
+
+- The graph may be empty.
+- Every node you return must be new. Returning any of the original nodes is a runtime error.`,
+    tests: [
+      [[[2, 4], [1, 3], [2, 4], [1, 3]]],
+      [[[2], [1]]],
+      [[]],
+      [[[2, 3], [1, 3], [1, 2]]],
+    ],
+    ref: (a: number[][]) => a,
+  },
+  {
+    section: "Graphs", pattern: "Topological sort, any valid order", title: "Any Course Order", difficulty: "medium",
+    fn: "any_course_order", params: [["courses", "int"], ["prereqs", "int[][]"]], returns: "int[]",
+    checker: `def check(args, expected, actual):
+    courses, prereqs = args
+    if expected == []:
+        return actual == []
+    if not isinstance(actual, list) or sorted(actual) != list(range(courses)):
+        return False
+    position = {course: i for i, course in enumerate(actual)}
+    return all(position[before] < position[after] for after, before in prereqs)
+`,
+    brief: `Courses are numbered 0 to \`courses - 1\`. Each prerequisite \`[a, b]\` means \`b\` must be taken before \`a\`.
+
+Return any order that takes every course, or an empty list if it is impossible. Many orders can be correct, and any of them is accepted.
+
+### Constraints
+
+- A loop of prerequisites makes it impossible.`,
+    tests: [[4, [[1, 0], [2, 0], [3, 1], [3, 2]]], [2, [[1, 0]]], [2, [[1, 0], [0, 1]]], [3, []], [2, [[0, 1]]], [1, []]],
+    ref: (n: number, pr: number[][]) => { const indeg = new Array(n).fill(0); for (const [a] of pr) indeg[a!]++; const out: number[] = []; const done = new Set<number>(); while (out.length < n) { const c = indeg.findIndex((d, i) => d === 0 && !done.has(i)); if (c < 0) return []; done.add(c); out.push(c); for (const [a, b] of pr) if (b === c) indeg[a!]--; } return out; },
   },
   {
     section: "Graphs", pattern: "Union-Find (cycle detection)", title: "The Extra Wire", difficulty: "medium",
@@ -827,7 +1034,7 @@ Return the time until every node has received it, or -1 if some node never does.
   },
   {
     section: "Backtracking", pattern: "Word search with pruning", title: "Trace The Word", difficulty: "medium",
-    fn: "word_exists", params: [["board", "string[][]"], ["word", "string"]], returns: "bool",
+    fn: "word_exists", params: [["board", "char[][]"], ["word", "string"]], returns: "bool",
     brief: `Return whether \`word\` can be traced on the board by moving up, down, left or right between letters, never reusing a cell.
 
 ### Constraints
@@ -838,8 +1045,8 @@ Return the time until every node has received it, or -1 if some node never does.
   },
   {
     section: "Backtracking", pattern: "Sudoku solving", title: "Finish The Sudoku", difficulty: "hard",
-    fn: "solve_sudoku", params: [["board", "string[][]"]], returns: "string[][]",
-    brief: `Fill the empty cells, marked \`"."\`, so that every row, column and 3 × 3 box holds the digits 1 to 9 exactly once. Return the completed board.
+    fn: "solve_sudoku", params: [["board", "char[][]"]], returns: "void", mutates: "board",
+    brief: `Fill the empty cells, marked \`"."\`, so that every row, column and 3 × 3 box holds the digits 1 to 9 exactly once. Fill the board in place: the judge checks \`board\` after your function returns.
 
 ### Constraints
 
@@ -1193,8 +1400,8 @@ This is the cost of building a Huffman code.
   },
   {
     section: "Math & Geometry", pattern: "Matrix rotation", title: "Quarter Turn", difficulty: "medium",
-    fn: "rotate_grid", params: [["grid", "int[][]"]], returns: "int[][]",
-    brief: `The grid is square. Return it rotated 90 degrees clockwise.
+    fn: "rotate_grid", params: [["grid", "int[][]"]], returns: "void", mutates: "grid",
+    brief: `The grid is square. Rotate it 90 degrees clockwise, in place: the judge checks \`grid\` after your function returns.
 
 ### Constraints
 
@@ -1220,95 +1427,121 @@ No two consecutive key points may have the same height.
   /* ===== Design Problems ===== */
   {
     section: "Design Problems", pattern: "LRU cache", title: "Least Recently Used", difficulty: "hard",
-    fn: "lru_cache", params: [["capacity", "int"], ["ops", "string[]"], ["args", "int[][]"]], returns: "int[]",
-    brief: `Simulate a cache holding at most \`capacity\` keys. \`args[i]\` belongs to \`ops[i]\`:
+    fn: "LRUCache", params: [["capacity", "int"]], returns: "void",
+    methods: [
+      { name: "get", params: [{ name: "key", type: "int" }], returns: "int" },
+      { name: "put", params: [{ name: "key", type: "int" }, { name: "value", type: "int" }], returns: "void" },
+    ],
+    brief: `Design a cache that holds at most \`capacity\` keys.
 
-- \`put\` \`[key, value]\`: store the value. If the cache is full, first throw out the key used least recently.
-- \`get\` \`[key]\`: report the value, or -1 if the key is absent.
+- \`get(key)\`: return the key's value, or -1 if it is not there
+- \`put(key, value)\`: store the value. If the cache is full, first throw out the key used least recently.
 
-Both \`get\` and \`put\` count as using a key. Return every reported value, in order.
+Both \`get\` and \`put\` count as using a key.
 
 ### Constraints
 
-- Both operations must take constant time. Use a hash map plus a doubly linked list.`,
+- Both methods must take constant time. Use a hash map plus a doubly linked list.`,
     tests: [
-      [2, ["put", "put", "get", "put", "get", "put", "get", "get", "get"], [[1, 1], [2, 2], [1], [3, 3], [2], [4, 4], [1], [3], [4]]],
-      [1, ["put", "get", "put", "get", "get"], [[2, 1], [2], [3, 2], [2], [3]]],
-      [2, ["put", "put", "put", "get", "get"], [[1, 1], [1, 5], [2, 2], [1], [2]]],
-      [2, ["get"], [[9]]],
+      calls("LRUCache", [2], [["put", 1, 1], ["put", 2, 2], ["get", 1], ["put", 3, 3], ["get", 2], ["put", 4, 4], ["get", 1], ["get", 3], ["get", 4]]),
+      calls("LRUCache", [1], [["put", 2, 1], ["get", 2], ["put", 3, 2], ["get", 2], ["get", 3]]),
+      calls("LRUCache", [2], [["put", 1, 1], ["put", 1, 5], ["put", 2, 2], ["get", 1], ["get", 2]]),
+      calls("LRUCache", [2], [["get", 9]]),
     ],
-    ref: (cap: number, ops: string[], args: number[][]) => { const m = new Map<number, number>(), out: number[] = []; ops.forEach((op, i) => { const [k, v] = args[i]!; if (op === "get") { if (!m.has(k!)) { out.push(-1); return; } const val = m.get(k!)!; m.delete(k!); m.set(k!, val); out.push(val); } else { m.delete(k!); m.set(k!, v!); if (m.size > cap) m.delete(m.keys().next().value!); } }); return out; },
+    ref: (ops: string[], vals: number[][]) => { const cap = vals[0]![0]!; const m = new Map<number, number>(); return ops.map((op, i) => { const [k, v] = vals[i]!; if (op === "get") { if (!m.has(k!)) return -1; const val = m.get(k!)!; m.delete(k!); m.set(k!, val); return val; } if (op === "put") { m.delete(k!); m.set(k!, v!); if (m.size > cap) m.delete(m.keys().next().value!); } return null; }); },
   },
   {
     section: "Design Problems", pattern: "LFU cache", title: "Least Frequently Used", difficulty: "hard",
-    fn: "lfu_cache", params: [["capacity", "int"], ["ops", "string[]"], ["args", "int[][]"]], returns: "int[]",
+    fn: "LFUCache", params: [["capacity", "int"]], returns: "void",
+    methods: [
+      { name: "get", params: [{ name: "key", type: "int" }], returns: "int" },
+      { name: "put", params: [{ name: "key", type: "int" }, { name: "value", type: "int" }], returns: "void" },
+    ],
     brief: `Like the LRU cache, except a full cache throws out the key used the fewest times. On a tie, it throws out the one of those used least recently. \`get\` and \`put\` each count as one use.
 
-Return every value reported by \`get\` (-1 when absent), in order.
+\`get\` returns -1 when the key is absent.
 
 ### Constraints
 
 - A capacity of 0 stores nothing.`,
     tests: [
-      [2, ["put", "put", "get", "put", "get", "get", "put", "get", "get", "get"], [[1, 1], [2, 2], [1], [3, 3], [2], [3], [4, 4], [1], [3], [4]]],
-      [0, ["put", "get"], [[0, 0], [0]]],
-      [2, ["put", "put", "get", "get", "put", "get", "get"], [[1, 1], [2, 2], [2], [2], [3, 3], [1], [2]]],
-      [1, ["put", "put", "get", "get"], [[1, 1], [1, 2], [1], [2]]],
+      calls("LFUCache", [2], [["put", 1, 1], ["put", 2, 2], ["get", 1], ["put", 3, 3], ["get", 2], ["get", 3], ["put", 4, 4], ["get", 1], ["get", 3], ["get", 4]]),
+      calls("LFUCache", [0], [["put", 0, 0], ["get", 0]]),
+      calls("LFUCache", [2], [["put", 1, 1], ["put", 2, 2], ["get", 2], ["get", 2], ["put", 3, 3], ["get", 1], ["get", 2]]),
+      calls("LFUCache", [1], [["put", 1, 1], ["put", 1, 2], ["get", 1], ["get", 2]]),
     ],
-    ref: (cap: number, ops: string[], args: number[][]) => { const m = new Map<number, { v: number; f: number; t: number }>(), out: number[] = []; let time = 0; ops.forEach((op, i) => { const [k, v] = args[i]!; time++; if (op === "get") { const e = m.get(k!); if (!e) { out.push(-1); return; } e.f++; e.t = time; out.push(e.v); } else { if (cap === 0) return; const e = m.get(k!); if (e) { e.v = v!; e.f++; e.t = time; return; } if (m.size >= cap) { let victim = -1, best: { f: number; t: number } | null = null; for (const [kk, ee] of m) if (!best || ee.f < best.f || (ee.f === best.f && ee.t < best.t)) { best = ee; victim = kk; } m.delete(victim); } m.set(k!, { v: v!, f: 1, t: time }); } }); return out; },
+    ref: (ops: string[], vals: number[][]) => { const cap = vals[0]![0]!; const m = new Map<number, { v: number; f: number; t: number }>(); let time = 0; return ops.map((op, i) => { const [k, v] = vals[i]!; time++; if (op === "get") { const e = m.get(k!); if (!e) return -1; e.f++; e.t = time; return e.v; } if (op === "put" && cap > 0) { const e = m.get(k!); if (e) { e.v = v!; e.f++; e.t = time; return null; } if (m.size >= cap) { let victim = -1, best: { f: number; t: number } | null = null; for (const [kk, ee] of m) if (!best || ee.f < best.f || (ee.f === best.f && ee.t < best.t)) { best = ee; victim = kk; } m.delete(victim); } m.set(k!, { v: v!, f: 1, t: time }); } return null; }); },
   },
   {
     section: "Design Problems", pattern: "Design: news feed", title: "Tiny Twitter", difficulty: "hard",
-    fn: "twitter", params: [["ops", "string[]"], ["args", "int[][]"]], returns: "int[][]",
-    brief: `Simulate a feed. \`args[i]\` belongs to \`ops[i]\`:
+    fn: "Twitter", params: [], returns: "void",
+    methods: [
+      { name: "post_tweet", params: [{ name: "user_id", type: "int" }, { name: "tweet_id", type: "int" }], returns: "void" },
+      { name: "get_news_feed", params: [{ name: "user_id", type: "int" }], returns: "int[]" },
+      { name: "follow", params: [{ name: "follower_id", type: "int" }, { name: "followee_id", type: "int" }], returns: "void" },
+      { name: "unfollow", params: [{ name: "follower_id", type: "int" }, { name: "followee_id", type: "int" }], returns: "void" },
+    ],
+    brief: `Design a tiny social feed.
 
-- \`post\` \`[user, tweet]\`: the user posts a tweet with that id
-- \`follow\` \`[follower, followee]\` and \`unfollow\` \`[follower, followee]\`
-- \`feed\` \`[user]\`: report up to 10 tweet ids from the user and everyone they follow, newest first
-
-Return every reported feed, in order.
+- \`post_tweet(user_id, tweet_id)\`: the user posts a tweet with that id
+- \`get_news_feed(user_id)\`: return up to 10 tweet ids from the user and everyone they follow, newest first
+- \`follow(follower_id, followee_id)\` and \`unfollow(follower_id, followee_id)\`
 
 ### Constraints
 
 - Tweet ids are all different. Following yourself changes nothing.
 - Merge each person's newest tweets with a heap instead of sorting every tweet.`,
     tests: [
-      [["post", "feed", "follow", "post", "feed", "unfollow", "feed"], [[1, 5], [1], [1, 2], [2, 6], [1], [1, 2], [1]]],
-      [["feed"], [[7]]],
-      [["post", "post", "post", "post", "post", "post", "post", "post", "post", "post", "post", "feed"], [[1, 1], [1, 2], [1, 3], [1, 4], [1, 5], [1, 6], [1, 7], [1, 8], [1, 9], [1, 10], [1, 11], [1]]],
-      [["follow", "follow", "post", "post", "post", "feed", "feed"], [[1, 2], [1, 1], [2, 20], [1, 10], [3, 30], [1], [2]]],
+      calls("Twitter", [], [["post_tweet", 1, 5], ["get_news_feed", 1], ["follow", 1, 2], ["post_tweet", 2, 6], ["get_news_feed", 1], ["unfollow", 1, 2], ["get_news_feed", 1]]),
+      calls("Twitter", [], [["get_news_feed", 7]]),
+      calls("Twitter", [], [...Array.from({ length: 11 }, (_, i): [string, number, number] => ["post_tweet", 1, i + 1]), ["get_news_feed", 1]]),
+      calls("Twitter", [], [["follow", 1, 2], ["follow", 1, 1], ["post_tweet", 2, 20], ["post_tweet", 1, 10], ["post_tweet", 3, 30], ["get_news_feed", 1], ["get_news_feed", 2]]),
     ],
-    ref: (ops: string[], args: number[][]) => { const tweets: [number, number][] = [], follows = new Map<number, Set<number>>(), out: number[][] = []; ops.forEach((op, i) => { const [a, b] = args[i]!; if (op === "post") tweets.push([a!, b!]); else if (op === "follow") { if (a !== b) follows.set(a!, (follows.get(a!) ?? new Set()).add(b!)); } else if (op === "unfollow") follows.get(a!)?.delete(b!); else { const who = new Set([a!, ...(follows.get(a!) ?? [])]); out.push(tweets.filter(([u]) => who.has(u)).map(([, t]) => t).reverse().slice(0, 10)); } }); return out; },
+    ref: (ops: string[], vals: number[][]) => { const tweets: [number, number][] = [], follows = new Map<number, Set<number>>(); return ops.map((op, i) => { const [a, b] = vals[i]!; if (op === "post_tweet") tweets.push([a!, b!]); else if (op === "follow") { if (a !== b) follows.set(a!, (follows.get(a!) ?? new Set()).add(b!)); } else if (op === "unfollow") follows.get(a!)?.delete(b!); else if (op === "get_news_feed") { const who = new Set([a!, ...(follows.get(a!) ?? [])]); return tweets.filter(([u]) => who.has(u)).map(([, t]) => t).reverse().slice(0, 10); } return null; }); },
   },
   {
     section: "Design Problems", pattern: "Design: rate limiter", title: "Quiet Logger", difficulty: "easy",
-    fn: "should_print", params: [["timestamps", "int[]"], ["messages", "string[]"]], returns: "bool[]",
-    brief: `Messages arrive at the given times, which never go backwards. A message may be printed only if the same message has not been printed in the last 10 seconds. If it was printed at time \`t\`, it may be printed again at \`t + 10\` or later.
+    fn: "Logger", params: [], returns: "void",
+    methods: [
+      { name: "should_print_message", params: [{ name: "timestamp", type: "int" }, { name: "message", type: "string" }], returns: "bool" },
+    ],
+    brief: `Design a logger that prints each message at most once every 10 seconds.
 
-Return, for each message, whether it gets printed.
+\`should_print_message(timestamp, message)\` returns whether the message may be printed now. If it was last printed at time \`t\`, it may be printed again at \`t + 10\` or later. Timestamps never go backwards.
 
 ### Constraints
 
 - A message that is blocked does not reset its timer.`,
-    tests: [[[1, 2, 3, 8, 10, 11], ["foo", "bar", "foo", "bar", "foo", "foo"]], [[0], ["x"]], [[], []], [[5, 5, 15, 16], ["a", "a", "a", "a"]]],
-    ref: (ts: number[], ms: string[]) => { const last = new Map<string, number>(); return ts.map((t, i) => { const p = last.get(ms[i]!); if (p !== undefined && t < p + 10) return false; last.set(ms[i]!, t); return true; }); },
+    tests: [
+      calls("Logger", [], [["should_print_message", 1, "foo"], ["should_print_message", 2, "bar"], ["should_print_message", 3, "foo"], ["should_print_message", 8, "bar"], ["should_print_message", 10, "foo"], ["should_print_message", 11, "foo"]]),
+      calls("Logger", [], [["should_print_message", 0, "x"]]),
+      calls("Logger", [], [["should_print_message", 5, "a"], ["should_print_message", 5, "a"], ["should_print_message", 15, "a"], ["should_print_message", 16, "a"]]),
+    ],
+    ref: (ops: string[], vals: [number, string][]) => { const last = new Map<string, number>(); return ops.map((op, i) => { if (op !== "should_print_message") return null; const [t, m] = vals[i]!; const p = last.get(m); if (p !== undefined && t < p + 10) return false; last.set(m, t); return true; }); },
   },
   {
     section: "Design Problems", pattern: "Iterator design", title: "Step Through The Tree", difficulty: "medium",
-    fn: "bst_iterator", params: [["root", "TreeNode"], ["ops", "string[]"]], returns: "int[]",
-    brief: `Build an iterator over a binary search tree that returns values in increasing order, then run the operations:
+    fn: "BSTIterator", params: [["root", "TreeNode"]], returns: "void",
+    methods: [
+      { name: "next", params: [], returns: "int" },
+      { name: "has_next", params: [], returns: "bool" },
+    ],
+    brief: `Design an iterator over a binary search tree that returns its values in increasing order.
 
-- \`next\`: report the next value
-- \`hasNext\`: report 1 if there is a next value, otherwise 0
-
-Return every reported number, in order.
+- \`next()\`: return the next value
+- \`has_next()\`: return whether a next value exists
 
 ### Constraints
 
 - \`next\` is only called when a value remains.
 - Use memory proportional to the tree's height, not its size. Keep a stack of the left spine.`,
-    tests: [[[7, 3, 15, null, null, 9, 20], ["next", "next", "hasNext", "next", "hasNext", "next", "hasNext", "next", "hasNext"]], [[1], ["hasNext", "next", "hasNext"]], [[], ["hasNext"]], [[2, 1, 3], ["next", "next", "next", "hasNext"]]],
-    ref: (a: (number | null)[], ops: string[]) => { const vals: number[] = []; const go = (n: Node | null) => { if (!n) return; go(n.left); vals.push(n.val); go(n.right); }; go(tree(a)); let i = 0; return ops.map((op) => (op === "next" ? vals[i++]! : i < vals.length ? 1 : 0)); },
+    tests: [
+      calls("BSTIterator", [[7, 3, 15, null, null, 9, 20]], [["next"], ["next"], ["has_next"], ["next"], ["has_next"], ["next"], ["has_next"], ["next"], ["has_next"]]),
+      calls("BSTIterator", [[1]], [["has_next"], ["next"], ["has_next"]]),
+      calls("BSTIterator", [[]], [["has_next"]]),
+      calls("BSTIterator", [[2, 1, 3]], [["next"], ["next"], ["next"], ["has_next"]]),
+    ],
+    ref: (ops: string[], vals: unknown[][]) => { const values: number[] = []; const go = (n: Node | null) => { if (!n) return; go(n.left); values.push(n.val); go(n.right); }; go(tree(vals[0]![0] as (number | null)[])); let i = 0; return ops.map((op) => (op === "next" ? values[i++]! : op === "has_next" ? i < values.length : null)); },
   },
 
   /* ===== Advanced / Hybrid ===== */
@@ -1396,7 +1629,12 @@ export const built = P.map((p) => {
     name: p.fn,
     params: p.params.map(([name, type]) => ({ name, type })),
     returns: p.returns,
-    ...(p.unordered ? { unordered: true } : {}),
+    ...(p.mutates ? { mutates: p.mutates } : {}),
+    ...(p.unordered ? { unordered: p.unordered } : {}),
+    ...(p.methods ? { methods: p.methods } : {}),
+    ...(p.hidden ? { hidden: p.hidden.map(([name, type]) => ({ name, type })) } : {}),
+    ...(p.provided ? { provided: p.provided } : {}),
+    ...(p.checker ? { checker: p.checker } : {}),
   };
   const slug = slugify(p.title);
   assert.ok(!slugs.has(slug), `duplicate title ${p.title}`);
@@ -1404,7 +1642,12 @@ export const built = P.map((p) => {
   const tests = p.tests.map((args, i) => {
     const value = p.ref(...structuredClone(args));
     assert.notEqual(value, undefined, `${p.title}: reference returned nothing for ${JSON.stringify(args)}`);
-    return { stdin: JSON.stringify(args), expectedStdout: expectedForm(value, p.returns), isSample: i < 2 };
+    // A design test prints one entry per operation; an in-place problem prints
+    // the argument it changed. The validator below checks both forms.
+    const printed = p.methods
+      ? JSON.stringify(value)
+      : expectedForm(value, p.returns === "void" ? p.params.find(([n]) => n === p.mutates)![1] : p.returns);
+    return { stdin: JSON.stringify(args), expectedStdout: printed, isSample: i < 2 };
   });
   errors.push(
     ...validateProblem({ slug, signature, points: POINTS[p.difficulty], timeLimitMs: 5000, starterCode: starterCodeFor(signature), tests }),
@@ -1414,8 +1657,11 @@ export const built = P.map((p) => {
 
 assert.deepEqual(errors, [], "every problem passes the console's validator");
 
+const describe = (params: { name: string; type: string }[]) => params.map((p) => `${p.name}: ${p.type}`).join(", ");
 const fnLine = (b: (typeof built)[number]) =>
-  `${b.fn}(${b.params.map(([n, t]) => `${n}: ${t}`).join(", ")}) -> ${b.returns}`;
+  b.methods
+    ? `class ${b.fn}(${describe(b.signature.params)}) { ${b.methods.map((m) => `${m.name}(${describe(m.params)}) -> ${m.returns}`).join("; ")} }`
+    : `${b.fn}(${describe(b.signature.params)}) -> ${b.returns === "void" ? `void, answer is ${b.mutates}` : b.returns}`;
 
 const sections = [...new Set(built.map((b) => b.section))];
 const anchor = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -1462,12 +1708,24 @@ for (const section of sections) {
 | Field | Value |
 |---|---|
 | URL name | \`${b.slug}\` |
-| Function | \`${fnLine(b)}\` |
+| ${b.methods ? "Class" : "Function"} | \`${fnLine(b)}\` |
 
 \`\`\`markdown
 ${b.brief}
 \`\`\`
+${b.provided ? `
+**Interactive.** Hidden values: ${b.signature.hidden!.map((h) => `\`${h.name}: ${h.type}\``).join(", ")}, added to each test after the arguments. Provided functions, one block per language:
+${(["python", "javascript", "cpp", "java"] as const).map((l) => `
+\`\`\`${l}
+${b.provided!.code[l].trim()}
+\`\`\`
+`).join("")}` : ""}${b.checker ? `
+**Checker.** Many answers are correct; paste this into *Many right answers*:
 
+\`\`\`python
+${b.checker.trim()}
+\`\`\`
+` : ""}
 **Tests.** Paste all of them, then tick Example on the first two.
 
 \`\`\`text

@@ -33,7 +33,37 @@ const NEVER: Partial<Record<ParamType, string>> = {
   "string[][]": '[["?"]]',
   ListNode: "ListNode(-987654321)",
   TreeNode: "TreeNode(-987654321)",
+  char: '"?"',
+  "char[]": '["?"]',
+  "char[][]": '[["?"]]',
+  NaryTree: "Node(-987654321)",
+  RandomList: "Node(-987654321)",
+  Graph: "Node(-987654321)",
 };
+
+/**
+ * A solution that ignores its input. A function returns a value no test
+ * expects; an in-place function overwrites its argument with one; a design
+ * class answers every call with one, which fails any test that queries it.
+ */
+function wrongFor(b: (typeof built)[number]): string {
+  const comment = "# Totally incorrect: ignores the input.";
+  if (b.methods) {
+    return [
+      `class ${b.fn}:`,
+      `    ${comment}`,
+      "    def __init__(self, *args):",
+      "        pass",
+      ...b.methods.map((m) => `\n    def ${m.name}(self, *args):\n        return ${m.returns === "void" ? "None" : (NEVER[m.returns] ?? '"?"')}`),
+    ].join("\n");
+  }
+  const args = b.params.map(([n]) => n).join(", ");
+  if (b.returns === "void") {
+    const type = b.params.find(([n]) => n === b.mutates)![1];
+    return `def ${b.fn}(${args}):\n    ${comment}\n    ${b.mutates}[:] = ${NEVER[type]}`;
+  }
+  return `def ${b.fn}(${args}):\n    ${comment}\n    return ${NEVER[b.returns] ?? '"?"'}`;
+}
 
 type Kind = "wrong" | "partial" | "correct";
 const LABEL: Record<Kind, string> = {
@@ -86,12 +116,12 @@ on the real judge, not predicted.
 Regenerate with \`yarn tsx --conditions=react-server --env-file=.env scripts/solutions-bank.ts\`.
 `;
 
+  // ONLY=fn,fn runs just those problems and leaves docs/SOLUTIONS.md alone.
+  const only = process.env.ONLY?.split(",");
   let section = "";
-  for (const b of built) {
+  for (const b of built.filter((x) => !only || only.includes(x.fn))) {
     const sources: Record<Kind, string> = {
-      wrong:
-        ALL[b.fn]!.wrong?.trim() ??
-        `def ${b.fn}(${b.params.map(([n]) => n).join(", ")}):\n    # Totally incorrect: ignores the input.\n    return ${NEVER[b.returns]}`,
+      wrong: ALL[b.fn]!.wrong?.trim() ?? wrongFor(b),
       partial: ALL[b.fn]!.partial.trim(),
       correct: ALL[b.fn]!.correct.trim(),
     };
@@ -103,7 +133,17 @@ Regenerate with \`yarn tsx --conditions=react-server --env-file=.env scripts/sol
     md += `\n### ${b.title}\n\n\`${b.fn}\` · URL name \`test-${b.slug}\`\n`;
 
     for (const kind of ["wrong", "partial", "correct"] as Kind[]) {
-      const result = await judge(sources[kind], b);
+      let result: RunResult;
+      try {
+        result = await judge(sources[kind], b);
+      } catch (error) {
+        // One problem the judge refuses must not abort the other 290 runs.
+        const message = error instanceof Error ? error.message : String(error);
+        problems.push(`${b.title} ${kind}: judge error (${message})`);
+        console.log(`BAD  ${b.fn.padEnd(30)} ${kind.padEnd(8)} judge error: ${message}`);
+        md += `\n**${LABEL[kind]}.** Judge error: ${message}.\n\n\`\`\`python\n${sources[kind]}\n\`\`\`\n`;
+        continue;
+      }
       const { passedCount: passed, totalCount: total } = result;
       const ok =
         kind === "wrong" ? passed === 0 : kind === "correct" ? passed === total : passed > 0 && passed < total;
@@ -116,8 +156,8 @@ Regenerate with \`yarn tsx --conditions=react-server --env-file=.env scripts/sol
     }
   }
 
-  writeFileSync("docs/SOLUTIONS.md", md);
-  console.log(problems.length ? `\n${problems.length} solutions missed their target:\n${problems.join("\n")}` : "\nall 288 solutions landed where intended");
+  if (!only) writeFileSync("docs/SOLUTIONS.md", md);
+  console.log(problems.length ? `\n${problems.length} solutions missed their target:\n${problems.join("\n")}` : `\nall ${built.filter((x) => !only || only.includes(x.fn)).length * 3} solutions landed where intended`);
   process.exit(problems.length ? 1 : 0);
 }
 

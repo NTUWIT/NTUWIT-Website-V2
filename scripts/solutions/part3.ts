@@ -38,6 +38,94 @@ def oranges_rotting(grid):
     return -1 if fresh else minutes
 `,
   },
+  max_area_of_island: {
+    partial: `
+def max_area_of_island(grid):
+    # Partial: counts the islands instead of measuring the biggest.
+    rows, cols, count = len(grid), len(grid[0]), 0
+    def sink(r, c):
+        if 0 <= r < rows and 0 <= c < cols and grid[r][c] == 1:
+            grid[r][c] = 0
+            sink(r + 1, c); sink(r - 1, c); sink(r, c + 1); sink(r, c - 1)
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r][c] == 1:
+                count += 1
+                sink(r, c)
+    return count
+`,
+    correct: `
+def max_area_of_island(grid):
+    # A plain recursive DFS. On the 90 x 90 test it goes thousands of calls deep.
+    rows, cols = len(grid), len(grid[0])
+    def area(r, c):
+        if not (0 <= r < rows and 0 <= c < cols) or grid[r][c] != 1:
+            return 0
+        grid[r][c] = 0
+        return 1 + area(r + 1, c) + area(r - 1, c) + area(r, c + 1) + area(r, c - 1)
+    return max((area(r, c) for r in range(rows) for c in range(cols)), default=0)
+`,
+  },
+  clone_graph: {
+    partial: `
+def clone_graph(node):
+    # Partial: only follows edges towards larger values, so part of the graph is lost.
+    if node is None:
+        return None
+    copies = {node.val: Node(node.val)}
+    stack = [node]
+    while stack:
+        cur = stack.pop()
+        for nb in cur.neighbors:
+            if nb.val < cur.val:
+                continue
+            if nb.val not in copies:
+                copies[nb.val] = Node(nb.val)
+                stack.append(nb)
+            copies[cur.val].neighbors.append(copies[nb.val])
+    return copies[node.val]
+`,
+    correct: `
+def clone_graph(node):
+    if node is None:
+        return None
+    copies = {node: Node(node.val)}
+    queue = [node]
+    for cur in queue:
+        for nb in cur.neighbors:
+            if nb not in copies:
+                copies[nb] = Node(nb.val)
+                queue.append(nb)
+            copies[cur].neighbors.append(copies[nb])
+    return copies[node]
+`,
+  },
+  any_course_order: {
+    partial: `
+def any_course_order(courses, prereqs):
+    # Partial: ignores the prerequisites and takes courses in number order.
+    return list(range(courses))
+`,
+    correct: `
+def any_course_order(courses, prereqs):
+    # A stack rather than a queue, so the order usually differs from the stored
+    # answer; the checker accepts any valid one.
+    after, indegree = [[] for _ in range(courses)], [0] * courses
+    for a, b in prereqs:
+        after[b].append(a)
+        indegree[a] += 1
+    ready = [c for c in range(courses) if indegree[c] == 0]
+    order = []
+    while ready:
+        c = ready.pop()
+        order.append(c)
+        for n in after[c]:
+            indegree[n] -= 1
+            if indegree[n] == 0:
+                ready.append(n)
+    return order if len(order) == courses else []
+`,
+  },
   redundant_connection: {
     partial: `
 def redundant_connection(edges):

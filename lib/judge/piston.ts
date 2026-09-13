@@ -32,6 +32,8 @@ const pistonResponse = z.object({
     // Piston reports `code: null` when the process was killed by a signal.
     code: z.number().nullable(),
     signal: z.string().nullable(),
+    // Set when Piston killed the run itself, e.g. "stdout length exceeded".
+    message: z.string().nullable().optional(),
   }),
   compile: z
     .object({
@@ -48,6 +50,8 @@ export type ExecResult = {
   exitCode: number | null;
   signal: string | null;
   compileError: string | null;
+  /** Piston's own reason for killing the run, when it gave one. */
+  message?: string | null;
 };
 
 export async function execute(args: {
@@ -111,6 +115,7 @@ export async function execute(args: {
     stderr: run.stderr,
     exitCode: run.code,
     signal: run.signal,
+    message: run.message ?? null,
     compileError: javacFailed
       ? run.stderr
       : compile && compile.code !== 0

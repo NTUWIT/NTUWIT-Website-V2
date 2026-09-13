@@ -24,7 +24,7 @@ def max_area(heights):
     partial: `
 def move_zeros(nums):
     # Partial: moves the zeros but reverses everything else.
-    return [x for x in nums if x != 0][::-1] + [0] * nums.count(0)
+    nums[:] = [x for x in nums if x != 0][::-1] + [0] * nums.count(0)
 `,
     correct: `
 def move_zeros(nums):
@@ -35,7 +35,6 @@ def move_zeros(nums):
             write += 1
     for i in range(write, len(nums)):
         nums[i] = 0
-    return nums
 `,
   },
   max_window_sum: {
@@ -194,7 +193,7 @@ def min_meeting_rooms(meetings):
     partial: `
 def sort_colors(colors):
     # Partial: pulls the 0s to the front but never sorts 1s and 2s.
-    return [c for c in colors if c == 0] + [c for c in colors if c != 0]
+    colors[:] = [c for c in colors if c == 0] + [c for c in colors if c != 0]
 `,
     correct: `
 def sort_colors(colors):
@@ -209,7 +208,41 @@ def sort_colors(colors):
         else:
             colors[mid], colors[high] = colors[high], colors[mid]
             high -= 1
-    return colors
+`,
+  },
+  merge_sort: {
+    partial: `
+def merge_sort(nums):
+    if len(nums) <= 1:
+        return nums
+    mid = len(nums) // 2
+    left, right = merge_sort(nums[:mid]), merge_sort(nums[mid:])
+    merged, i, j = [], 0, 0
+    while i < len(left) and j < len(right):
+        if left[i] <= right[j]:
+            merged.append(left[i])
+            i += 1
+        else:
+            merged.append(right[j])
+            j += 1
+    # Partial: keeps what is left of the left half but drops the right half's.
+    return merged + left[i:]
+`,
+    correct: `
+def merge_sort(nums):
+    if len(nums) <= 1:
+        return nums
+    mid = len(nums) // 2
+    left, right = merge_sort(nums[:mid]), merge_sort(nums[mid:])
+    merged, i, j = [], 0, 0
+    while i < len(left) and j < len(right):
+        if left[i] <= right[j]:
+            merged.append(left[i])
+            i += 1
+        else:
+            merged.append(right[j])
+            j += 1
+    return merged + left[i:] + right[j:]
 `,
   },
   find_pattern: {

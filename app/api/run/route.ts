@@ -2,7 +2,7 @@ import { JudgeError, fail, ok } from "@/lib/errors";
 import { requireUser } from "@/lib/auth";
 import { getProblemById, getSampleTests, getSessionWindow,
   isProblemLive } from "@/lib/db/queries";
-import { matchesType } from "@/lib/problems/validate";
+import { checkArguments } from "@/lib/problems/validate";
 import { runTests } from "@/lib/judge/runner";
 import { isSessionOpen } from "@/lib/session";
 import { withinLimit } from "@/lib/ratelimit";
@@ -44,7 +44,6 @@ export async function POST(request: Request) {
   // A custom case is the participant's own input: it is executed and shown,
   // never compared or scored. It must still be well-formed before it reaches
   // the judge.
-  const expectedArity = problem.signature.params.length;
   let custom: { stdin: string; expectedStdout: string } | null = null;
   if (input.customArgs?.trim()) {
     let parsed: unknown;
@@ -53,16 +52,13 @@ export async function POST(request: Request) {
     } catch {
       return fail("INVALID");
     }
-    if (!Array.isArray(parsed) || parsed.length !== expectedArity) return fail("INVALID");
-    // Arity alone is not enough. Python and JavaScript will happily accept a
+    // Shape and types both. Python and JavaScript will happily accept a
     // wrong-typed argument and compute something from it (`true * 2` is 2,
     // `null * 2` is 0, a string doubles by concatenation), so the participant
-    // gets a confident answer derived from input they did not mean. Checking
-    // the declared type here is what makes custom input honest.
-    const mistyped = problem.signature.params.some(
-      (param, position) => !matchesType(parsed[position], param.type),
-    );
-    if (mistyped) return fail("INVALID");
+    // gets a confident answer derived from input they did not mean. The same
+    // check the console runs on authored tests makes custom input honest,
+    // including a design problem's operation lists.
+    if (checkArguments(problem.signature, parsed) !== null) return fail("INVALID");
     custom = { stdin: JSON.stringify(parsed), expectedStdout: "\u0000never-matches" };
   }
 

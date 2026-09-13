@@ -18,6 +18,17 @@ import { getAllTests, getProblemBySlug, listSets } from "@/lib/db/queries";
 import { built } from "./problem-bank";
 import { stubSession } from "./stubs/clerk-server";
 
+/**
+ * Postgres stores jsonb with its own key order, so a signature read back is
+ * equal to the one saved but not the same text. Compare with keys sorted.
+ */
+const canonical = (value: unknown): string =>
+  JSON.stringify(value, (_, x) =>
+    x && typeof x === "object" && !Array.isArray(x)
+      ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : x,
+  );
+
 const SET_NAME = "Pattern Test Bank";
 const SLUG_PREFIX = "test-";
 
@@ -38,10 +49,12 @@ const payloadFor = (b: (typeof built)[number], order: number) => ({
 
 async function main() {
   // 1. The guard: a signed-in non-admin must be refused, and nothing written.
+  // Probed with a slug that never exists, so the check holds on a rerun too.
   stubSession.role = "member";
-  const refused = await saveProblem(payloadFor(built[0]!, 0));
+  const probe = { ...payloadFor(built[0]!, 0), slug: `${SLUG_PREFIX}guard-probe` };
+  const refused = await saveProblem(probe);
   assert.equal(refused.ok, false, "a non-admin must not be able to save a problem");
-  assert.equal(await getProblemBySlug(`${SLUG_PREFIX}${built[0]!.slug}`), null, "a refused save must write nothing");
+  assert.equal(await getProblemBySlug(probe.slug), null, "a refused save must write nothing");
   console.log("guard: non-admin refused, nothing written");
   stubSession.role = "admin";
 
@@ -56,12 +69,29 @@ async function main() {
   console.log(`set: "${SET_NAME}"`);
 
   // 3. Every problem: save through the wizard's action, then move into the set.
-  let created = 0, skipped = 0;
+  let created = 0, skipped = 0, updated = 0;
   const failures: string[] = [];
   for (const [i, b] of built.entries()) {
     const payload = payloadFor(b, i);
-    if (await getProblemBySlug(payload.slug)) {
-      skipped++;
+    const existing = await getProblemBySlug(payload.slug);
+    if (existing) {
+      // A problem the bank has since changed is resaved through the wizard's
+      // edit path, so a rerun brings the database back in line.
+      const stored = await getAllTests(existing.id);
+      const unchanged =
+        canonical(existing.signature) === canonical(payload.signature) &&
+        stored.length === payload.tests.length &&
+        payload.tests.every((t) => stored.some((s) => s.stdin === t.stdin && s.expectedStdout === t.expectedStdout && s.isSample === t.isSample));
+      if (unchanged) {
+        skipped++;
+      } else {
+        const result = await saveProblem({ ...payload, id: existing.id, setId: set.id });
+        if (!result.ok) {
+          failures.push(`${b.title}: ${result.errors.join("; ")}`);
+          continue;
+        }
+        updated++;
+      }
     } else {
       const result = await saveProblem(payload);
       if (!result.ok) {
@@ -75,7 +105,7 @@ async function main() {
     const moved = await moveProblem(row.id, set.id);
     assert.ok(moved.ok, JSON.stringify(moved));
   }
-  console.log(`problems: ${created} created, ${skipped} already there, ${failures.length} failed`);
+  console.log(`problems: ${created} created, ${updated} updated, ${skipped} unchanged, ${failures.length} failed`);
   for (const f of failures) console.log(`  FAIL ${f}`);
 
   // The wizard's edit path: resaving with an id replaces the problem and its
@@ -94,7 +124,7 @@ async function main() {
     const stored = await getAllTests(row.id);
     const same =
       row.setId === set.id &&
-      JSON.stringify(row.signature) === JSON.stringify(b.signature) &&
+      canonical(row.signature) === canonical(b.signature) &&
       stored.length === b.tests.length &&
       b.tests.every((t) => stored.some((s) => s.stdin === t.stdin && s.expectedStdout === t.expectedStdout && s.isSample === t.isSample));
     if (!same) {

@@ -44,6 +44,65 @@ def find_duplicate(nums):
     return slow
 `,
   },
+  has_cycle: {
+    wrong: `
+def has_cycle(head):
+    # Totally incorrect: the pointers are right but every answer is inverted.
+    slow = fast = head
+    while fast and fast.next:
+        slow, fast = slow.next, fast.next.next
+        if slow is fast:
+            return False
+    return True
+`,
+    partial: `
+def has_cycle(head):
+    # Partial: remembers values, not nodes, so a repeated value looks like a loop.
+    seen = set()
+    while head:
+        if head.val in seen:
+            return True
+        seen.add(head.val)
+        head = head.next
+    return False
+`,
+    correct: `
+def has_cycle(head):
+    slow = fast = head
+    while fast and fast.next:
+        slow, fast = slow.next, fast.next.next
+        if slow is fast:
+            return True
+    return False
+`,
+  },
+  copy_random_list: {
+    partial: `
+def copy_random_list(head):
+    # Partial: copies the next pointers, but random still points into the original list.
+    dummy = tail = Node(0)
+    node = head
+    while node:
+        tail.next = Node(node.val)
+        tail.next.random = node.random
+        tail, node = tail.next, node.next
+    return dummy.next
+`,
+    correct: `
+def copy_random_list(head):
+    copies = {None: None}
+    node = head
+    while node:
+        copies[node] = Node(node.val)
+        node = node.next
+    node = head
+    while node:
+        copies[node].next = copies[node.next]
+        copies[node].random = copies[node.random]
+        node = node.next
+    return copies[head]
+`,
+  },
   reverse_k_group: {
     partial: `
 def reverse_k_group(head, size):
@@ -200,37 +259,43 @@ def brackets_match(text):
     return not stack
 `,
   },
-  min_stack: {
+  MinStack: {
     partial: `
-def min_stack(ops, values):
+class MinStack:
     # Partial: remembers the smallest value ever pushed, even after it is popped.
-    stack, out, lowest = [], [], None
-    for op, v in zip(ops, values):
-        if op == "push":
-            stack.append(v)
-            lowest = v if lowest is None else min(lowest, v)
-        elif op == "pop":
-            stack.pop()
-        elif op == "top":
-            out.append(stack[-1])
-        else:
-            out.append(lowest)
-    return out
+    def __init__(self):
+        self.stack, self.lowest = [], None
+
+    def push(self, val):
+        self.stack.append(val)
+        self.lowest = val if self.lowest is None else min(self.lowest, val)
+
+    def pop(self):
+        self.stack.pop()
+
+    def top(self):
+        return self.stack[-1]
+
+    def get_min(self):
+        return self.lowest
 `,
     correct: `
-def min_stack(ops, values):
+class MinStack:
     # Each entry carries the minimum at the time it was pushed.
-    stack, out = [], []
-    for op, v in zip(ops, values):
-        if op == "push":
-            stack.append((v, min(v, stack[-1][1]) if stack else v))
-        elif op == "pop":
-            stack.pop()
-        elif op == "top":
-            out.append(stack[-1][0])
-        else:
-            out.append(stack[-1][1])
-    return out
+    def __init__(self):
+        self.stack = []
+
+    def push(self, val):
+        self.stack.append((val, min(val, self.stack[-1][1]) if self.stack else val))
+
+    def pop(self):
+        self.stack.pop()
+
+    def top(self):
+        return self.stack[-1][0]
+
+    def get_min(self):
+        return self.stack[-1][1]
 `,
   },
   binary_search: {
@@ -273,6 +338,27 @@ def min_eating_speed(piles, hours):
     while lo < hi:
         mid = (lo + hi) // 2
         if sum((p + mid - 1) // mid for p in piles) <= hours:
+            hi = mid
+        else:
+            lo = mid + 1
+    return lo
+`,
+  },
+  first_bad_version: {
+    partial: `
+def first_bad_version(n):
+    # Partial: asks about every build in turn, far too slow for billions of builds.
+    version = 1
+    while not is_bad_version(version):
+        version += 1
+    return version
+`,
+    correct: `
+def first_bad_version(n):
+    lo, hi = 1, n
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if is_bad_version(mid):
             hi = mid
         else:
             lo = mid + 1
@@ -379,6 +465,23 @@ def level_averages(root):
         out.append(sum(n.val for n in level) / len(level))
         level = [c for n in level for c in (n.left, n.right) if c]
     return out
+`,
+  },
+  max_depth: {
+    partial: `
+def max_depth(root):
+    # Partial: only follows the first child at each level.
+    depth = 0
+    while root:
+        depth += 1
+        root = root.children[0] if root.children else None
+    return depth
+`,
+    correct: `
+def max_depth(root):
+    if root is None:
+        return 0
+    return 1 + max((max_depth(child) for child in root.children), default=0)
 `,
   },
   insert_into_bst: {

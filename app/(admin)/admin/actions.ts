@@ -18,7 +18,7 @@ import {
 } from "@/lib/db/queries";
 import { runTests } from "@/lib/judge/runner";
 import { LANGUAGES, type Language } from "@/lib/languages";
-import { PARAM_TYPES } from "@/lib/problems/signature";
+import { PARAM_TYPES, RETURN_TYPES } from "@/lib/problems/signature";
 import { MAX_SOURCE_BYTES } from "@/lib/validation";
 import { starterCodeFor } from "@/lib/problems/starter";
 import { validateProblem } from "@/lib/problems/validate";
@@ -172,18 +172,35 @@ export async function removeProblem(problemId: string): Promise<ActionResult> {
 
 /* ---------- authoring ---------- */
 
+const paramShape = z.object({
+  name: z.string().regex(/^[a-z][a-z0-9_]*$/, "Parameter names must be snake_case."),
+  type: z.enum(PARAM_TYPES),
+});
+
+const methodShape = z.object({ name: z.string(), params: z.array(paramShape).max(8), returns: z.enum(RETURN_TYPES) });
+
+// Names are checked loosely here and precisely by validateProblem, which knows
+// whether this is a function (snake_case) or a design class (PascalCase).
 const signatureShape = z.object({
-  name: z.string().regex(/^[a-z][a-z0-9_]*$/, "The function name must be snake_case."),
-  params: z
-    .array(
-      z.object({
-        name: z.string().regex(/^[a-z][a-z0-9_]*$/, "Parameter names must be snake_case."),
-        type: z.enum(PARAM_TYPES),
+  name: z.string().regex(/^[A-Za-z][A-Za-z0-9_]*$/, "The name may use letters, numbers and underscores."),
+  params: z.array(paramShape).max(8),
+  returns: z.enum(RETURN_TYPES),
+  mutates: z.string().optional(),
+  unordered: z.union([z.boolean(), z.literal("deep")]).optional(),
+  methods: z.array(methodShape).max(16).optional(),
+  hidden: z.array(paramShape).max(8).optional(),
+  provided: z
+    .object({
+      functions: z.array(methodShape).max(8),
+      code: z.object({
+        python: z.string().max(20_000),
+        javascript: z.string().max(20_000),
+        cpp: z.string().max(20_000),
+        java: z.string().max(20_000),
       }),
-    )
-    .max(8),
-  returns: z.enum(PARAM_TYPES),
-  unordered: z.boolean().optional(),
+    })
+    .optional(),
+  checker: z.string().max(20_000).optional(),
 });
 
 const draft = z.object({

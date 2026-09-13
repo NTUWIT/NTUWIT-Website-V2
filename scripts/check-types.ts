@@ -20,7 +20,8 @@ type Case = {
   solutions: Record<Language, string>;
 };
 
-const CASES: Case[] = [
+// Exported for scripts/load-test.ts, which needs a known-correct solution in every language.
+export const CASES: Case[] = [
   {
     category: "Linked list in and out",
     signature: { name: "reverse_list", params: [{ name: "head", type: "ListNode" }], returns: "ListNode" },
@@ -214,4 +215,5 @@ assert.equal(failures, 0, `${failures} language run(s) failed`);
 console.log("\ncheck-types: every category round-trips in every language");
 }
 
-void main();
+// Only when run directly: the load test imports CASES and must not start this.
+if (/(^|[\\/])check-types\.ts$/.test(process.argv[1] ?? "")) void main();

@@ -1,15 +1,26 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { removeProblem, saveProblem, type ActionResult } from "@/app/(admin)/admin/actions";
-import { GhostButton, PrimaryButton, SecondaryButton } from "@/components/ide/primitives";
+import { GhostButton, PrimaryButton, SecondaryButton, TabButton } from "@/components/ide/primitives";
 import { ReadinessPanel, type ReadinessItem } from "./ReadinessPanel";
 import { VerifyStep } from "./VerifyStep";
 import { useRouter } from "next/navigation";
 import { Feedback } from "./Console";
-import { PARAM_TYPES, type ParamType } from "@/lib/problems/signature";
-import { expectedForm, matchesType } from "@/lib/problems/validate";
+import {
+  isDesign,
+  MUTABLE_TYPES,
+  PARAM_TYPES,
+  RETURN_TYPES,
+  type Method,
+  type Param,
+  type ParamType,
+  type ReturnType,
+  type Signature,
+} from "@/lib/problems/signature";
+import { checkArguments, checkExpected } from "@/lib/problems/validate";
+import { LANGUAGES, type Language } from "@/lib/languages";
 import { starterFor } from "@/lib/problems/starter";
 
 const STEPS = [
@@ -22,7 +33,6 @@ const STEPS = [
 ] as const;
 type Step = (typeof STEPS)[number]["name"];
 
-type Param = { name: string; type: ParamType };
 type Test = { stdin: string; expectedStdout: string; isSample: boolean };
 
 const slugify = (title: string) =>
@@ -42,10 +52,16 @@ const EXAMPLE_VALUE: Record<ParamType, string> = {
   "bool[]": "[true, false]",
   "string[]": '["a", "b"]',
   "int[][]": "[[1, 2], [3, 4]]",
+  char: '"a"',
+  "char[]": '["a", "b"]',
+  "char[][]": '[["a", "b"], ["c", "d"]]',
   "string[][]": '[["a", "b"], ["c"]]',
   "map<string,int>": '{"a": 2, "b": 1}',
   ListNode: "[1, 2, 3]",
   TreeNode: "[3, 9, 20, null, null, 15, 7]",
+  NaryTree: "[1, null, 3, 2, 4, null, 5, 6]",
+  RandomList: "[[7, null], [13, 0], [11, 4]]",
+  Graph: "[[2, 4], [1, 3], [2, 4], [1, 3]]",
 };
 
 /** Human wording for each type, so nobody has to guess what `int[][]` wants. */
@@ -59,10 +75,16 @@ const TYPE_HELP: Record<ParamType, string> = {
   "bool[]": "a list of true/false, e.g. [true, false]",
   "string[]": 'a list of text, e.g. ["a", "b"]',
   "int[][]": "a grid or graph of whole numbers, e.g. [[1, 2], [3, 4]]",
+  char: 'a single character, e.g. "a"',
+  "char[]": 'a list of characters, e.g. ["a", "b"]',
+  "char[][]": 'a grid of characters, e.g. [["a", "b"], ["c", "d"]]',
   "string[][]": 'a grid or groups of text, e.g. [["a", "b"], ["c"]]',
   "map<string,int>": 'text keys to whole numbers, e.g. {"a": 2, "b": 1}',
-  ListNode: "a linked list written as its values, e.g. [1, 2, 3]",
+  ListNode: 'a linked list written as its values, e.g. [1, 2, 3], or {"values": [3, 2, 0], "cycleAt": 1} for one whose tail links back to node 1',
   TreeNode: "a binary tree in level order with null for gaps, e.g. [3, 9, 20, null, null, 15, 7]",
+  NaryTree: "an N-ary tree in level order, each node's children followed by null, e.g. [1, null, 3, 2, 4, null, 5, 6]",
+  RandomList: "a list whose nodes also point anywhere in it: [value, index of the random node or null] per node",
+  Graph: "an undirected graph as an adjacency list; node i+1 is row i, and the function receives node 1",
 };
 
 export type ExistingProblem = {
@@ -75,7 +97,7 @@ export type ExistingProblem = {
   timeLimitMs: number;
   order: number;
   statementMd: string;
-  signature: { name: string; params: Param[]; returns: ParamType; unordered?: boolean };
+  signature: Signature;
   tests: Test[];
   attempts: number;
 };
@@ -96,12 +118,26 @@ export function ProblemWizard({ existing }: { existing?: ExistingProblem }) {
   const [timeLimitMs, setTimeLimitMs] = useState(existing?.timeLimitMs ?? 5000);
   const [order, setOrder] = useState(existing?.order ?? 0);
 
+  const [kind, setKind] = useState<"function" | "class">(
+    existing && isDesign(existing.signature) ? "class" : "function",
+  );
   const [fnName, setFnName] = useState(existing?.signature.name ?? "");
   const [params, setParams] = useState<Param[]>(
     existing?.signature.params ?? [{ name: "nums", type: "int[]" }],
   );
-  const [returns, setReturns] = useState<ParamType>(existing?.signature.returns ?? "int");
-  const [unordered, setUnordered] = useState(existing?.signature.unordered ?? false);
+  const [returns, setReturns] = useState<ReturnType>(existing?.signature.returns ?? "int");
+  const [mutates, setMutates] = useState(existing?.signature.mutates ?? "");
+  const [unordered, setUnordered] = useState<boolean | "deep">(existing?.signature.unordered ?? false);
+  const [hidden, setHidden] = useState<Param[]>(existing?.signature.hidden ?? []);
+  const [providedFns, setProvidedFns] = useState<Method[]>(existing?.signature.provided?.functions ?? []);
+  const [providedCode, setProvidedCode] = useState<Record<Language, string>>(
+    existing?.signature.provided?.code ?? { python: "", javascript: "", cpp: "", java: "" },
+  );
+  const [codeTab, setCodeTab] = useState<Language>("python");
+  const [checker, setChecker] = useState(existing?.signature.checker ?? "");
+  const [methods, setMethods] = useState<Method[]>(
+    existing?.signature.methods ?? [{ name: "", params: [], returns: "int" }],
+  );
 
   const [statementMd, setStatementMd] = useState(existing?.statementMd ?? "");
   const [tests, setTests] = useState<Test[]>(
@@ -114,60 +150,57 @@ export function ProblemWizard({ existing }: { existing?: ExistingProblem }) {
   const [verifiedShape, setVerifiedShape] = useState<string | null>(null);
 
   const effectiveSlug = slugTouched ? slug : slugify(title);
+  const design = kind === "class";
+  // What a function problem prints: its return value, or for an in-place
+  // problem the final value of the argument it changes.
+  const answer: ParamType | null = design
+    ? null
+    : returns === "void"
+      ? (params.find((p) => p.name === mutates)?.type ?? null)
+      : returns;
   // Only a list can be compared in any order.
-  const canBeUnordered = returns.endsWith("[]") || returns === "ListNode";
-  const signature = { name: fnName, params, returns, unordered: canBeUnordered && unordered };
-  const shape = useMemo(
-    () => JSON.stringify({ tests, params, returns, unordered, fnName, timeLimitMs }),
-    [tests, params, returns, unordered, fnName, timeLimitMs],
-  );
+  const canBeUnordered = answer !== null && (answer.endsWith("[]") || answer === "ListNode");
+  const signature: Signature = design
+    ? { name: fnName, params, returns: "void", methods }
+    : {
+        name: fnName,
+        params,
+        returns,
+        ...(returns === "void" ? { mutates } : {}),
+        ...(canBeUnordered && unordered ? { unordered } : {}),
+        ...(providedFns.length > 0 ? { hidden, provided: { functions: providedFns, code: providedCode } } : {}),
+        ...(checker.trim() ? { checker } : {}),
+      };
+  const shape = JSON.stringify({ tests, signature, timeLimitMs });
   const verified = verifiedShape === shape;
 
   /**
    * The same rules the server enforces, checked as you type so a mistake is
    * caught next to the field that caused it rather than on submit.
    */
-  const testProblems = useMemo(
-    () =>
-      tests.map((test) => {
-        if (!test.stdin.trim()) return "Arguments are empty.";
-        let args: unknown;
-        try {
-          args = JSON.parse(test.stdin);
-        } catch {
-          return "Arguments are not valid JSON. Wrap them in [ ].";
-        }
-        if (!Array.isArray(args)) return "Arguments must be a JSON array.";
-        if (args.length !== params.length) {
-          return `${args.length} argument${args.length === 1 ? "" : "s"} given, the function takes ${params.length}.`;
-        }
-        for (const [index, param] of params.entries()) {
-          if (!matchesType(args[index], param.type)) {
-            return `Argument ${index + 1} (${param.name}) should be ${TYPE_HELP[param.type]}.`;
-          }
-        }
-        if (!test.expectedStdout.trim()) return "The expected answer is empty.";
-        if (returns !== "double" && returns !== "bool") {
-          let parsed: unknown;
-          try {
-            parsed = JSON.parse(test.expectedStdout);
-          } catch {
-            return returns === "string"
-              ? 'A text answer must be quoted, e.g. "hello".'
-              : "The expected answer is not valid JSON.";
-          }
-          if (!matchesType(parsed, returns)) {
-            return `The expected answer should be ${TYPE_HELP[returns]}.`;
-          }
-          const canonical = expectedForm(parsed, returns);
-          if (canonical !== test.expectedStdout.trim()) {
-            return `Write it exactly as the judge prints it: ${canonical}`;
-          }
-        }
-        return null;
-      }),
-    [tests, params, returns],
-  );
+  const testProblems = tests.map((test) => {
+    if (!test.stdin.trim()) return "Arguments are empty.";
+    let args: unknown;
+    try {
+      args = JSON.parse(test.stdin);
+    } catch {
+      return "Arguments are not valid JSON. Wrap them in [ ].";
+    }
+    return checkArguments(signature, args) ?? checkExpected(signature, test.expectedStdout, args);
+  });
+
+  const describe = (list: Param[]) => list.map((p) => `${p.name}: ${p.type}`).join(", ");
+  const signatureLine = design
+    ? `class ${fnName || "?"}(${describe(params)}) { ${methods.map((m) => `${m.name}(${describe(m.params)}) -> ${m.returns}`).join("; ")} }`
+    : `${fnName || "?"}(${describe(params)}) -> ${returns === "void" ? `void, answer is ${mutates || "?"}` : returns}`;
+  const argsExample = design
+    ? `[["${fnName || "MinStack"}", "${methods[0]?.name || "push"}"], [[${params.map((p) => EXAMPLE_VALUE[p.type]).join(", ")}], [${(methods[0]?.params ?? []).map((p) => EXAMPLE_VALUE[p.type]).join(", ")}]]]`
+    : `[${[...params, ...hidden].map((p) => EXAMPLE_VALUE[p.type]).join(", ")}]`;
+  const answerExample = design
+    ? `[null, ${methods[0] && methods[0].returns !== "void" ? EXAMPLE_VALUE[methods[0].returns] : "null"}]`
+    : answer
+      ? EXAMPLE_VALUE[answer]
+      : "";
 
   const problemsByStep: Record<Step, string[]> = {
     "Details": [
@@ -179,12 +212,40 @@ export function ProblemWizard({ existing }: { existing?: ExistingProblem }) {
         : null,
     ].filter((x): x is string => x !== null),
     "Function": [
-      !/^[a-z][a-z0-9_]*$/.test(fnName) ? "The function name must be snake_case, e.g. count_vowels." : null,
-      params.some((p) => !/^[a-z][a-z0-9_]*$/.test(p.name))
+      design
+        ? !/^[A-Z][A-Za-z0-9]*$/.test(fnName)
+          ? "The class name must be PascalCase, e.g. MinStack."
+          : null
+        : !/^[a-z][a-z0-9_]*$/.test(fnName)
+          ? "The function name must be snake_case, e.g. count_vowels."
+          : null,
+      [params, ...(design ? methods.map((m) => m.params) : [])].flat().some((p) => !/^[a-z][a-z0-9_]*$/.test(p.name))
         ? "Every parameter needs a snake_case name."
         : null,
-      new Set(params.map((p) => p.name)).size !== params.length
+      [params, ...(design ? methods.map((m) => m.params) : [])].some((list) => new Set(list.map((p) => p.name)).size !== list.length)
         ? "Two parameters share a name."
+        : null,
+      design && methods.some((m) => !/^[a-z][a-z0-9_]*$/.test(m.name))
+        ? "Every method needs a snake_case name, e.g. get_min."
+        : null,
+      design && new Set(methods.map((m) => m.name)).size !== methods.length ? "Two methods share a name." : null,
+      !design && providedFns.some((f) => !/^[a-z][a-z0-9_]*$/.test(f.name))
+        ? "Every provided function needs a snake_case name, e.g. is_bad_version."
+        : null,
+      !design && providedFns.length > 0 && LANGUAGES.some((l) => !providedCode[l].trim())
+        ? "Write the provided functions in all four languages."
+        : null,
+      !design && providedFns.length > 0 && !/\bclass\s+Provided\b/.test(providedCode.java)
+        ? "The Java provided code must declare class Provided."
+        : null,
+      !design && hidden.length > 0 && providedFns.length === 0
+        ? "Hidden values need a provided function to read them."
+        : null,
+      !design && checker.trim() && !/\bdef\s+check\s*\(/.test(checker)
+        ? "The checker must define check(args, expected, actual)."
+        : null,
+      !design && returns === "void" && !params.some((p) => p.name === mutates && MUTABLE_TYPES.includes(p.type))
+        ? "Choose the list or grid the function changes; its final value is the answer."
         : null,
     ].filter((x): x is string => x !== null),
     "Description": statementMd.trim().length < 20 ? ["Write a statement so participants know what to do."] : [],
@@ -204,7 +265,11 @@ export function ProblemWizard({ existing }: { existing?: ExistingProblem }) {
       detail: title.trim() ? `${title.trim()} · ${points} pts` : "no title",
       state: problemsByStep["Details"].length === 0 ? "done" : "todo" },
     { label: "Function", step: "Function",
-      detail: fnName ? `${fnName}, ${params.length} parameter${params.length === 1 ? "" : "s"}` : "not defined",
+      detail: !fnName
+        ? "not defined"
+        : design
+          ? `${fnName}, ${methods.length} method${methods.length === 1 ? "" : "s"}`
+          : `${fnName}, ${params.length} parameter${params.length === 1 ? "" : "s"}`,
       state: problemsByStep["Function"].length === 0 ? "done" : "todo" },
     { label: "Description", step: "Description",
       detail: statementMd.trim() ? `${statementMd.trim().split(/\s+/).length} words` : "not written",
@@ -367,77 +432,278 @@ export function ProblemWizard({ existing }: { existing?: ExistingProblem }) {
 
         {step === "Function" && (
           <div className="space-y-5">
+            <div className="flex gap-1" role="group" aria-label="What participants write">
+              <TabButton active={!design} onClick={() => setKind("function")}>
+                A function
+              </TabButton>
+              <TabButton active={design} onClick={() => setKind("class")}>
+                A class (design problem)
+              </TabButton>
+            </div>
             <p className="max-w-[62ch] text-sm leading-relaxed text-ide-ink-2">
-              Participants write a single function. The surrounding code that
-              reads the arguments and prints the result is generated for all
-              four languages.
+              {design
+                ? "Participants write a class. For each test the judge creates it, then calls its methods in the order the test lists them, as LeetCode does for design problems."
+                : "Participants write this function, plus any helper functions they like."}{" "}
+              The judge supplies the program around their code and makes the
+              call itself in all four languages, so they cannot change how it is
+              called or read the input themselves.
             </p>
-            <Field label="Function name" hint="Use snake_case. Converted to each language\u2019s convention automatically.">
+            <Field
+              label={design ? "Class name" : "Function name"}
+              hint={design ? "PascalCase, e.g. MinStack." : "Use snake_case. Converted to each language\u2019s convention automatically."}
+            >
               <input
                 value={fnName}
                 onChange={(event) => setFnName(event.target.value)}
-                placeholder="sum_of_numbers"
+                placeholder={design ? "MinStack" : "sum_of_numbers"}
                 className={`${inputClass} font-mono`}
               />
             </Field>
 
             <div>
-              <p className="mb-2 text-sm font-medium">Parameters</p>
-              <div className="space-y-2">
-                {params.map((param, index) => (
-                  <div key={index} className="flex flex-wrap items-center gap-2">
-                    <label className="sr-only" htmlFor={`param-name-${index}`}>
-                      Name of parameter {index + 1}
-                    </label>
-                    <input
-                      id={`param-name-${index}`}
-                      value={param.name}
-                      onChange={(event) =>
-                        setParams(params.map((p, i) => (i === index ? { ...p, name: event.target.value } : p)))
-                      }
-                      placeholder="nums"
-                      className={`${inputClass} font-mono w-full sm:max-w-48`}
-                    />
-                    <label className="sr-only" htmlFor={`param-type-${index}`}>
-                      Type of parameter {index + 1}
-                    </label>
-                    <select
-                      id={`param-type-${index}`}
-                      value={param.type}
-                      onChange={(event) =>
-                        setParams(
-                          params.map((p, i) =>
-                            i === index ? { ...p, type: event.target.value as ParamType } : p,
-                          ),
-                        )
-                      }
-                      className={`${inputClass} w-full sm:max-w-44`}
-                    >
-                      {PARAM_TYPES.map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="text-xs text-ide-ink-3">{TYPE_HELP[param.type]}</span>
-                    <button
-                      type="button"
-                      onClick={() => setParams(params.filter((_, i) => i !== index))}
-                      className="ml-auto text-xs text-ide-ink-3 transition hover:text-ide-fail"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setParams([...params, { name: "", type: "int" }])}
-                className="mt-3 rounded-control bg-ide-panel-2 px-3 py-1.5 text-sm transition hover:bg-ide-panel-3"
-              >
-                Add a parameter
-              </button>
+              <p className="mb-2 text-sm font-medium">{design ? "Constructor parameters" : "Parameters"}</p>
+              <ParamRows params={params} onChange={setParams} idPrefix="param" />
             </div>
+
+            {design ? (
+              <div>
+                <p className="mb-2 text-sm font-medium">Methods</p>
+                <div className="space-y-3">
+                  {methods.map((method, index) => (
+                    <div key={index} className="rounded-inset bg-ide-panel-2 p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          aria-label={`Name of method ${index + 1}`}
+                          value={method.name}
+                          onChange={(event) =>
+                            setMethods(methods.map((m, i) => (i === index ? { ...m, name: event.target.value } : m)))
+                          }
+                          placeholder="get_min"
+                          className={`${inputClass} font-mono w-full sm:max-w-48`}
+                        />
+                        <select
+                          aria-label={`What method ${index + 1} returns`}
+                          value={method.returns}
+                          onChange={(event) =>
+                            setMethods(
+                              methods.map((m, i) =>
+                                i === index ? { ...m, returns: event.target.value as ReturnType } : m,
+                              ),
+                            )
+                          }
+                          className={`${inputClass} w-full sm:max-w-52`}
+                        >
+                          {RETURN_TYPES.map((type) => (
+                            <option key={type} value={type}>
+                              {type === "void" ? "void (returns nothing)" : `returns ${type}`}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => setMethods(methods.filter((_, i) => i !== index))}
+                          className="ml-auto text-xs text-ide-ink-3 transition hover:text-ide-fail"
+                        >
+                          Remove method
+                        </button>
+                      </div>
+                      <div className="mt-3">
+                        <ParamRows
+                          params={method.params}
+                          onChange={(next) =>
+                            setMethods(methods.map((m, i) => (i === index ? { ...m, params: next } : m)))
+                          }
+                          idPrefix={`method-${index}`}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMethods([...methods, { name: "", params: [], returns: "void" }])}
+                  className="mt-3 rounded-control bg-ide-panel-2 px-3 py-1.5 text-sm transition hover:bg-ide-panel-3"
+                >
+                  Add a method
+                </button>
+              </div>
+            ) : (
+              <>
+                <Field label="Returns">
+                  <select
+                    value={returns}
+                    onChange={(event) => setReturns(event.target.value as ReturnType)}
+                    className={`${inputClass} w-full sm:max-w-60`}
+                  >
+                    {RETURN_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {type === "void" ? "void (changes an argument in place)" : type}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                {returns === "void" && (
+                  <Field
+                    label="The answer is the final value of"
+                    hint="For in-place problems like Rotate Image or Sort Colors. Only a list or grid can be changed in place."
+                  >
+                    <select
+                      value={mutates}
+                      onChange={(event) => setMutates(event.target.value)}
+                      className={`${inputClass} w-full sm:max-w-60`}
+                    >
+                      <option value="">Choose a parameter</option>
+                      {params
+                        .filter((p) => p.name && MUTABLE_TYPES.includes(p.type))
+                        .map((p) => (
+                          <option key={p.name} value={p.name}>
+                            {p.name} ({p.type})
+                          </option>
+                        ))}
+                    </select>
+                  </Field>
+                )}
+
+                {canBeUnordered && (
+                  <Field label="Order of the answer">
+                    <select
+                      value={String(unordered)}
+                      onChange={(event) =>
+                        setUnordered(event.target.value === "deep" ? "deep" : event.target.value === "true")
+                      }
+                      className={`${inputClass} w-full sm:max-w-80`}
+                    >
+                      <option value="false">Must match exactly</option>
+                      <option value="true">Any order (sets, subsets, permutations)</option>
+                      <option value="deep">Any order, inside each item too (grouped anagrams)</option>
+                    </select>
+                  </Field>
+                )}
+
+                <details className="rounded-inset bg-ide-panel-2 p-4" open={providedFns.length > 0}>
+                  <summary className="cursor-pointer text-sm font-medium">
+                    Interactive: functions the judge provides
+                  </summary>
+                  <p className="mt-2 max-w-[62ch] text-xs leading-relaxed text-ide-ink-2">
+                    For problems like First Bad Version, where participants call
+                    a function you supply. Hidden values are added to each test
+                    after the arguments; your functions can read them, the
+                    participant&rsquo;s function never receives them. In Python and
+                    JavaScript they are not reachable by name; in C++ and Java
+                    they live in <code className="font-mono">Hidden</code>.
+                  </p>
+                  <p className="mt-4 mb-2 text-sm font-medium">Hidden values</p>
+                  <ParamRows params={hidden} onChange={setHidden} idPrefix="hidden" />
+                  <p className="mt-4 mb-2 text-sm font-medium">Provided functions</p>
+                  <div className="space-y-3">
+                    {providedFns.map((fn, index) => (
+                      <div key={index} className="rounded-inset bg-ide-panel p-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            aria-label={`Name of provided function ${index + 1}`}
+                            value={fn.name}
+                            onChange={(event) =>
+                              setProvidedFns(providedFns.map((f, i) => (i === index ? { ...f, name: event.target.value } : f)))
+                            }
+                            placeholder="is_bad_version"
+                            className={`${inputClass} font-mono w-full sm:max-w-48`}
+                          />
+                          <select
+                            aria-label={`What provided function ${index + 1} returns`}
+                            value={fn.returns}
+                            onChange={(event) =>
+                              setProvidedFns(
+                                providedFns.map((f, i) => (i === index ? { ...f, returns: event.target.value as ReturnType } : f)),
+                              )
+                            }
+                            className={`${inputClass} w-full sm:max-w-52`}
+                          >
+                            {RETURN_TYPES.map((type) => (
+                              <option key={type} value={type}>
+                                {type === "void" ? "void (returns nothing)" : `returns ${type}`}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setProvidedFns(providedFns.filter((_, i) => i !== index))}
+                            className="ml-auto text-xs text-ide-ink-3 transition hover:text-ide-fail"
+                          >
+                            Remove function
+                          </button>
+                        </div>
+                        <div className="mt-3">
+                          <ParamRows
+                            params={fn.params}
+                            onChange={(next) =>
+                              setProvidedFns(providedFns.map((f, i) => (i === index ? { ...f, params: next } : f)))
+                            }
+                            idPrefix={`provided-${index}`}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setProvidedFns([...providedFns, { name: "", params: [], returns: "bool" }])}
+                    className="mt-3 rounded-control bg-ide-panel px-3 py-1.5 text-sm transition hover:bg-ide-panel-3"
+                  >
+                    Add a provided function
+                  </button>
+                  {providedFns.length > 0 && (
+                    <div className="mt-4">
+                      <div className="flex gap-1" role="group" aria-label="Language of the provided code">
+                        {LANGUAGES.map((language) => (
+                          <TabButton key={language} active={codeTab === language} onClick={() => setCodeTab(language)}>
+                            {language}
+                          </TabButton>
+                        ))}
+                      </div>
+                      <textarea
+                        aria-label={`Provided code in ${codeTab}`}
+                        value={providedCode[codeTab]}
+                        onChange={(event) => setProvidedCode({ ...providedCode, [codeTab]: event.target.value })}
+                        rows={6}
+                        spellCheck={false}
+                        placeholder={
+                          codeTab === "python"
+                            ? "def is_bad_version(version):\n    return version >= bad"
+                            : codeTab === "javascript"
+                              ? "function isBadVersion(version) {\n  return version >= bad;\n}"
+                              : codeTab === "cpp"
+                                ? "bool isBadVersion(long long version) {\n    return version >= Hidden::bad;\n}"
+                                : "class Provided {\n    static boolean isBadVersion(long version) {\n        return version >= Hidden.bad;\n    }\n}"
+                        }
+                        className={`${inputClass} mt-2 font-mono text-xs`}
+                      />
+                    </div>
+                  )}
+                </details>
+
+                <details className="rounded-inset bg-ide-panel-2 p-4" open={checker.trim().length > 0}>
+                  <summary className="cursor-pointer text-sm font-medium">Many right answers: a custom checker</summary>
+                  <p className="mt-2 max-w-[62ch] text-xs leading-relaxed text-ide-ink-2">
+                    Leave empty to compare answers exactly. Otherwise write Python
+                    defining <code className="font-mono">check(args, expected, actual)</code>{" "}
+                    that returns True when <code className="font-mono">actual</code> is a correct
+                    answer for <code className="font-mono">args</code>. The expected answer in
+                    each test is one correct answer, passed in for reference. It runs
+                    in the judge&rsquo;s sandbox, never on the server.
+                  </p>
+                  <textarea
+                    aria-label="Checker in Python"
+                    value={checker}
+                    onChange={(event) => setChecker(event.target.value)}
+                    rows={6}
+                    spellCheck={false}
+                    placeholder={"def check(args, expected, actual):\n    nums, target = args\n    i, j = actual\n    return i != j and nums[i] + nums[j] == target"}
+                    className={`${inputClass} mt-2 font-mono text-xs`}
+                  />
+                </details>
+              </>
+            )}
 
             <div className="rounded-inset bg-ide-panel-2 p-4">
               <p className="mb-2 text-xs text-ide-ink-3">
@@ -448,41 +714,9 @@ export function ProblemWizard({ existing }: { existing?: ExistingProblem }) {
               <pre className="overflow-x-auto font-mono text-xs whitespace-pre-wrap text-ide-ink">
                 {fnName
                   ? starterFor("python", signature)
-                  : "Enter a function name to preview the starting code."}
+                  : `Enter a ${design ? "class" : "function"} name to preview the starting code.`}
               </pre>
             </div>
-
-            <Field label="Returns">
-              <select
-                value={returns}
-                onChange={(event) => setReturns(event.target.value as ParamType)}
-                className={`${inputClass} w-full sm:max-w-44`}
-              >
-                {PARAM_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            {canBeUnordered && (
-              <label className="flex items-start gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={unordered}
-                  onChange={(event) => setUnordered(event.target.checked)}
-                  className="mt-1 accent-(--ide-accent)"
-                />
-                <span>
-                  Accept the answer in any order
-                  <span className="block text-xs text-ide-ink-3">
-                    For sets, subsets and permutations. Only the outer list is
-                    reordered; each item in it must still match exactly.
-                  </span>
-                </span>
-              </label>
-            )}
           </div>
         )}
 
@@ -506,17 +740,34 @@ export function ProblemWizard({ existing }: { existing?: ExistingProblem }) {
         {step === "Test cases" && (
           <div className="space-y-4">
             <div className="rounded-inset bg-ide-panel-2 p-4 text-sm leading-relaxed text-ide-ink-2">
-              <p>
-                Each case gives the arguments and the answer they should
-                produce. Arguments are written as a JSON array with one entry per
-                parameter, so a function taking{" "}
-                {params.length === 1 ? "one list" : `${params.length} values`}{" "}
-                is written{" "}
-                <code className="rounded bg-ide-panel px-1.5 py-0.5 font-mono text-xs text-ide-ink">
-                  {`[${params.map((p) => EXAMPLE_VALUE[p.type]).join(", ")}]`}
-                </code>
-                .
-              </p>
+              {design ? (
+                <p>
+                  Each case lists the operations and their arguments, as
+                  LeetCode writes design tests. The first operation creates the
+                  object. For example{" "}
+                  <code className="rounded bg-ide-panel px-1.5 py-0.5 font-mono text-xs text-ide-ink">
+                    {'[["MinStack","push","get_min"],[[],[3],[]]]'}
+                  </code>{" "}
+                  expects{" "}
+                  <code className="rounded bg-ide-panel px-1.5 py-0.5 font-mono text-xs text-ide-ink">
+                    [null,null,3]
+                  </code>
+                  : one entry per operation, null for the constructor and for
+                  methods that return nothing.
+                </p>
+              ) : (
+                <p>
+                  Each case gives the arguments and the answer they should
+                  produce. Arguments are written as a JSON array with one entry per
+                  parameter, so a function taking{" "}
+                  {params.length === 1 ? "one list" : `${params.length} values`}{" "}
+                  is written{" "}
+                  <code className="rounded bg-ide-panel px-1.5 py-0.5 font-mono text-xs text-ide-ink">
+                    {argsExample}
+                  </code>
+                  .{returns === "void" && mutates ? ` The answer is ${mutates} after the function returns.` : ""}
+                </p>
+              )}
               <p className="mt-2">
                 Shown cases appear in the problem as worked examples. Hidden
                 cases are used for scoring only and are never sent to the
@@ -556,20 +807,27 @@ export function ProblemWizard({ existing }: { existing?: ExistingProblem }) {
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="block">
                       <span className="mb-1 block text-xs text-ide-ink-3">
-                        Arguments ({params.length === 0 ? "no parameters" : params.map((p) => p.name).join(", ")})
+                        Arguments (
+                        {design
+                          ? "operations, then their arguments"
+                          : params.length === 0
+                            ? "no parameters"
+                            : params.map((p) => p.name).join(", ")}
+                        )
                       </span>
                       <input
                         value={test.stdin}
                         onChange={(event) =>
                           setTests(tests.map((t, i) => (i === index ? { ...t, stdin: event.target.value } : t)))
                         }
-                        placeholder={`[${params.map((p) => EXAMPLE_VALUE[p.type]).join(", ")}]`}
+                        placeholder={argsExample}
                         className={`${inputClass} font-mono text-sm`}
                       />
                     </label>
                     <label className="block">
                       <span className="mb-1 block text-xs text-ide-ink-3">
-                        Expected answer ({returns})
+                        Expected answer (
+                        {design ? "one entry per operation" : returns === "void" ? `final ${mutates || "argument"}` : returns})
                       </span>
                       <input
                         value={test.expectedStdout}
@@ -580,7 +838,7 @@ export function ProblemWizard({ existing }: { existing?: ExistingProblem }) {
                             ),
                           )
                         }
-                        placeholder={EXAMPLE_VALUE[returns]}
+                        placeholder={answerExample}
                         className={`${inputClass} font-mono text-sm`}
                       />
                     </label>
@@ -681,11 +939,7 @@ export function ProblemWizard({ existing }: { existing?: ExistingProblem }) {
               <Summary label="Difficulty" value={difficulty} />
               <Summary label="Points" value={String(points)} />
               <Summary label="Time limit" value={`${timeLimitMs} ms per test`} />
-              <Summary
-                label="Function"
-                mono
-                value={`${fnName || "?"}(${params.map((p) => `${p.name}: ${p.type}`).join(", ")}) -> ${returns}`}
-              />
+              <Summary label={design ? "Class" : "Function"} mono value={signatureLine} />
               <Summary
                 label="Tests"
                 value={`${tests.length} total, ${tests.filter((t) => t.isSample).length} shown`}
@@ -804,6 +1058,70 @@ function Field({
       {hint && <span className="mt-1 block max-w-[62ch] text-xs text-ide-ink-3">{hint}</span>}
       <span className="mt-2 block">{children}</span>
     </label>
+  );
+}
+
+/** One editor for every parameter list: the function's, the constructor's, each method's. */
+function ParamRows({
+  params,
+  onChange,
+  idPrefix,
+}: {
+  params: Param[];
+  onChange: (next: Param[]) => void;
+  idPrefix: string;
+}) {
+  return (
+    <>
+      <div className="space-y-2">
+        {params.map((param, index) => (
+          <div key={index} className="flex flex-wrap items-center gap-2">
+            <label className="sr-only" htmlFor={`${idPrefix}-name-${index}`}>
+              Name of parameter {index + 1}
+            </label>
+            <input
+              id={`${idPrefix}-name-${index}`}
+              value={param.name}
+              onChange={(event) => onChange(params.map((p, i) => (i === index ? { ...p, name: event.target.value } : p)))}
+              placeholder="nums"
+              className={`${inputClass} font-mono w-full sm:max-w-48`}
+            />
+            <label className="sr-only" htmlFor={`${idPrefix}-type-${index}`}>
+              Type of parameter {index + 1}
+            </label>
+            <select
+              id={`${idPrefix}-type-${index}`}
+              value={param.type}
+              onChange={(event) =>
+                onChange(params.map((p, i) => (i === index ? { ...p, type: event.target.value as ParamType } : p)))
+              }
+              className={`${inputClass} w-full sm:max-w-44`}
+            >
+              {PARAM_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs text-ide-ink-3">{TYPE_HELP[param.type]}</span>
+            <button
+              type="button"
+              onClick={() => onChange(params.filter((_, i) => i !== index))}
+              className="ml-auto text-xs text-ide-ink-3 transition hover:text-ide-fail"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange([...params, { name: "", type: "int" }])}
+        className="mt-2 rounded-control bg-ide-panel-2 px-3 py-1.5 text-sm transition hover:bg-ide-panel-3"
+      >
+        Add a parameter
+      </button>
+    </>
   );
 }
 

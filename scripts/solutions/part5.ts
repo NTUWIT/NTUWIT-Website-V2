@@ -238,11 +238,16 @@ def spiral_order(grid):
     partial: `
 def rotate_grid(grid):
     # Partial: transposes but forgets to reverse each row.
-    return [list(row) for row in zip(*grid)]
+    grid[:] = [list(row) for row in zip(*grid)]
 `,
     correct: `
 def rotate_grid(grid):
-    return [list(row) for row in zip(*grid[::-1])]
+    n = len(grid)
+    for i in range(n):
+        for j in range(i + 1, n):
+            grid[i][j], grid[j][i] = grid[j][i], grid[i][j]
+    for row in grid:
+        row.reverse()
 `,
   },
   skyline: {
@@ -281,190 +286,210 @@ def skyline(buildings):
     return out
 `,
   },
-  lru_cache: {
+  LRUCache: {
     partial: `
-def lru_cache(capacity, ops, args):
+class LRUCache:
     # Partial: evicts the oldest inserted key; a get does not count as a use.
-    cache, out = {}, []
-    for op, a in zip(ops, args):
-        if op == "get":
-            out.append(cache.get(a[0], -1))
-        else:
-            cache[a[0]] = a[1]
-            if len(cache) > capacity:
-                del cache[next(iter(cache))]
-    return out
+    def __init__(self, capacity):
+        self.capacity, self.cache = capacity, {}
+
+    def get(self, key):
+        return self.cache.get(key, -1)
+
+    def put(self, key, value):
+        self.cache[key] = value
+        if len(self.cache) > self.capacity:
+            del self.cache[next(iter(self.cache))]
 `,
     correct: `
 from collections import OrderedDict
 
-def lru_cache(capacity, ops, args):
-    cache, out = OrderedDict(), []
-    for op, a in zip(ops, args):
-        if op == "get":
-            if a[0] in cache:
-                cache.move_to_end(a[0])
-                out.append(cache[a[0]])
-            else:
-                out.append(-1)
-        else:
-            cache[a[0]] = a[1]
-            cache.move_to_end(a[0])
-            if len(cache) > capacity:
-                cache.popitem(last=False)
-    return out
+class LRUCache:
+    def __init__(self, capacity):
+        self.capacity, self.cache = capacity, OrderedDict()
+
+    def get(self, key):
+        if key not in self.cache:
+            return -1
+        self.cache.move_to_end(key)
+        return self.cache[key]
+
+    def put(self, key, value):
+        self.cache[key] = value
+        self.cache.move_to_end(key)
+        if len(self.cache) > self.capacity:
+            self.cache.popitem(last=False)
 `,
   },
-  lfu_cache: {
+  LFUCache: {
     partial: `
-def lfu_cache(capacity, ops, args):
+class LFUCache:
     # Partial: no special case for a capacity of 0, so it crashes there.
-    value, freq, last, out = {}, {}, {}, []
-    for time, (op, a) in enumerate(zip(ops, args)):
-        k = a[0]
-        if op == "get":
-            if k in value:
-                freq[k] += 1
-                last[k] = time
-                out.append(value[k])
-            else:
-                out.append(-1)
-            continue
-        if k in value:
-            value[k], freq[k], last[k] = a[1], freq[k] + 1, time
-            continue
-        if len(value) >= capacity:
-            victim = min(value, key=lambda x: (freq[x], last[x]))
-            del value[victim], freq[victim], last[victim]
-        value[k], freq[k], last[k] = a[1], 1, time
-    return out
+    def __init__(self, capacity):
+        self.capacity, self.value, self.freq, self.last, self.time = capacity, {}, {}, {}, 0
+
+    def _use(self, key):
+        self.time += 1
+        self.freq[key] += 1
+        self.last[key] = self.time
+
+    def get(self, key):
+        if key not in self.value:
+            self.time += 1
+            return -1
+        self._use(key)
+        return self.value[key]
+
+    def put(self, key, value):
+        if key in self.value:
+            self.value[key] = value
+            self._use(key)
+            return
+        if len(self.value) >= self.capacity:
+            victim = min(self.value, key=lambda k: (self.freq[k], self.last[k]))
+            del self.value[victim], self.freq[victim], self.last[victim]
+        self.time += 1
+        self.value[key], self.freq[key], self.last[key] = value, 1, self.time
 `,
     correct: `
-def lfu_cache(capacity, ops, args):
-    value, freq, last, out = {}, {}, {}, []
-    for time, (op, a) in enumerate(zip(ops, args)):
-        k = a[0]
-        if op == "get":
-            if k in value:
-                freq[k] += 1
-                last[k] = time
-                out.append(value[k])
-            else:
-                out.append(-1)
-            continue
-        if capacity == 0:
-            continue
-        if k in value:
-            value[k], freq[k], last[k] = a[1], freq[k] + 1, time
-            continue
-        if len(value) >= capacity:
+class LFUCache:
+    def __init__(self, capacity):
+        self.capacity, self.value, self.freq, self.last, self.time = capacity, {}, {}, {}, 0
+
+    def _use(self, key):
+        self.time += 1
+        self.freq[key] += 1
+        self.last[key] = self.time
+
+    def get(self, key):
+        if key not in self.value:
+            self.time += 1
+            return -1
+        self._use(key)
+        return self.value[key]
+
+    def put(self, key, value):
+        if self.capacity == 0:
+            return
+        if key in self.value:
+            self.value[key] = value
+            self._use(key)
+            return
+        if len(self.value) >= self.capacity:
             # Fewest uses first, then least recently used among those.
-            victim = min(value, key=lambda x: (freq[x], last[x]))
-            del value[victim], freq[victim], last[victim]
-        value[k], freq[k], last[k] = a[1], 1, time
-    return out
+            victim = min(self.value, key=lambda k: (self.freq[k], self.last[k]))
+            del self.value[victim], self.freq[victim], self.last[victim]
+        self.time += 1
+        self.value[key], self.freq[key], self.last[key] = value, 1, self.time
 `,
   },
-  twitter: {
+  Twitter: {
     partial: `
-def twitter(ops, args):
+class Twitter:
     # Partial: the feed shows only the user's own tweets.
-    tweets, out, time = {}, [], 0
-    for op, a in zip(ops, args):
-        if op == "post":
-            time += 1
-            tweets.setdefault(a[0], []).append((time, a[1]))
-        elif op == "feed":
-            recent = sorted(tweets.get(a[0], []), reverse=True)[:10]
-            out.append([tid for _, tid in recent])
-    return out
+    def __init__(self):
+        self.tweets, self.time = {}, 0
+
+    def post_tweet(self, user_id, tweet_id):
+        self.time += 1
+        self.tweets.setdefault(user_id, []).append((self.time, tweet_id))
+
+    def get_news_feed(self, user_id):
+        return [t for _, t in sorted(self.tweets.get(user_id, []), reverse=True)[:10]]
+
+    def follow(self, follower_id, followee_id):
+        pass
+
+    def unfollow(self, follower_id, followee_id):
+        pass
 `,
     correct: `
 import heapq
 
-def twitter(ops, args):
-    tweets, follows, out, time = {}, {}, [], 0
-    for op, a in zip(ops, args):
-        if op == "post":
-            time += 1
-            tweets.setdefault(a[0], []).append((time, a[1]))
-        elif op == "follow":
-            if a[0] != a[1]:
-                follows.setdefault(a[0], set()).add(a[1])
-        elif op == "unfollow":
-            follows.get(a[0], set()).discard(a[1])
-        else:
-            people = {a[0]} | follows.get(a[0], set())
-            recent = heapq.nlargest(10, (t for p in people for t in tweets.get(p, [])))
-            out.append([tid for _, tid in recent])
-    return out
+class Twitter:
+    def __init__(self):
+        self.tweets, self.follows, self.time = {}, {}, 0
+
+    def post_tweet(self, user_id, tweet_id):
+        self.time += 1
+        self.tweets.setdefault(user_id, []).append((self.time, tweet_id))
+
+    def get_news_feed(self, user_id):
+        people = {user_id} | self.follows.get(user_id, set())
+        recent = heapq.nlargest(10, (t for p in people for t in self.tweets.get(p, [])))
+        return [tid for _, tid in recent]
+
+    def follow(self, follower_id, followee_id):
+        if follower_id != followee_id:
+            self.follows.setdefault(follower_id, set()).add(followee_id)
+
+    def unfollow(self, follower_id, followee_id):
+        self.follows.get(follower_id, set()).discard(followee_id)
 `,
   },
-  should_print: {
-    wrong: `
-def should_print(timestamps, messages):
-    # Totally incorrect: never prints anything, and reports one answer too many.
-    return [False] * (len(timestamps) + 1)
-`,
+  Logger: {
     partial: `
-def should_print(timestamps, messages):
-    last, out = {}, []
-    for t, m in zip(timestamps, messages):
-        if m in last and t <= last[m] + 10:  # Partial: blocks exactly 10 seconds later too.
-            out.append(False)
-        else:
-            last[m] = t
-            out.append(True)
-    return out
+class Logger:
+    def __init__(self):
+        self.last = {}
+
+    def should_print_message(self, timestamp, message):
+        # Partial: blocks the message at exactly 10 seconds later too.
+        if message in self.last and timestamp <= self.last[message] + 10:
+            return False
+        self.last[message] = timestamp
+        return True
 `,
     correct: `
-def should_print(timestamps, messages):
-    last, out = {}, []
-    for t, m in zip(timestamps, messages):
-        if m in last and t < last[m] + 10:
-            out.append(False)
-        else:
-            last[m] = t
-            out.append(True)
-    return out
+class Logger:
+    def __init__(self):
+        self.last = {}
+
+    def should_print_message(self, timestamp, message):
+        if message in self.last and timestamp < self.last[message] + 10:
+            return False
+        self.last[message] = timestamp
+        return True
 `,
   },
-  bst_iterator: {
+  BSTIterator: {
     partial: `
-def bst_iterator(root, ops):
+class BSTIterator:
     # Partial: walks in preorder, not increasing order.
-    values = []
-    def walk(n):
-        if n:
-            values.append(n.val)
-            walk(n.left)
-            walk(n.right)
-    walk(root)
-    out, i = [], 0
-    for op in ops:
-        if op == "next":
-            out.append(values[i])
-            i += 1
-        else:
-            out.append(1 if i < len(values) else 0)
-    return out
+    def __init__(self, root):
+        self.values, self.i = [], 0
+        def walk(n):
+            if n:
+                self.values.append(n.val)
+                walk(n.left)
+                walk(n.right)
+        walk(root)
+
+    def next(self):
+        self.i += 1
+        return self.values[self.i - 1]
+
+    def has_next(self):
+        return self.i < len(self.values)
 `,
     correct: `
-def bst_iterator(root, ops):
-    stack, out = [], []
-    def push_left(n):
-        while n:
-            stack.append(n)
-            n = n.left
-    push_left(root)
-    for op in ops:
-        if op == "next":
-            n = stack.pop()
-            out.append(n.val)
-            push_left(n.right)
-        else:
-            out.append(1 if stack else 0)
-    return out
+class BSTIterator:
+    def __init__(self, root):
+        self.stack = []
+        self._push_left(root)
+
+    def _push_left(self, node):
+        while node:
+            self.stack.append(node)
+            node = node.left
+
+    def next(self):
+        node = self.stack.pop()
+        self._push_left(node.right)
+        return node.val
+
+    def has_next(self):
+        return bool(self.stack)
 `,
   },
   min_network_cost: {
