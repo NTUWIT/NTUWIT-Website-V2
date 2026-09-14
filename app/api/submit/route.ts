@@ -15,7 +15,7 @@ import { parseBody } from "@/lib/validation";
 
 // Partial credit means every test runs, and java costs ~1.85s per test on the
 // current judge, 10 tests is ~18.5s, well past the platform's 10s default.
-// Measured 2026-09-05; see design.md.
+// Measured 2026-09-05.
 export const maxDuration = 60;
 
 export async function POST(request: Request) {

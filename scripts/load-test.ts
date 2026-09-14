@@ -5,7 +5,7 @@
  * It drives `runTests`, the same code /api/run and /api/submit call, straight
  * at PISTON_URL. So it measures the droplet, which is the part that can fall
  * over, and it needs no sign-ins and writes nothing to the database. What it
- * does not cover is Vercel, Clerk, Neon and Upstash; see docs/DEPLOY.md.
+ * does not cover is Vercel, Clerk, Neon and Upstash.
  *
  * Every solution used is known to be correct, so any verdict other than
  * "accepted" is load damage: usually a false time limit, because Piston's run

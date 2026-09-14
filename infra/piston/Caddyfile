@@ -20,7 +20,7 @@
 	# stopping, which is somebody with a leaked token mining on this box
 	# around the clock.
 	#
-	# If the load test in docs/DEPLOY.md ever shows a 429 reaching a
+	# If a load test (yarn load:test) ever shows a 429 reaching a
 	# participant as JUDGE_UNAVAILABLE, raise this rather than removing it.
 	rate_limit {
 		zone piston {

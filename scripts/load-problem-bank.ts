@@ -1,5 +1,5 @@
 /**
- * Loads docs/PROBLEM-BANK.md into the database as one problem set, through the
+ * Loads the problem bank (scripts/problem-bank.ts) into the database as one problem set, through the
  * same server actions the admin console calls: `addSet`, then `saveProblem`
  * with the exact payload ProblemWizard submits, then `moveProblem`. Only
  * Clerk's session lookup and Next's cache are stubbed (scripts/stubs), so the
@@ -61,7 +61,7 @@ async function main() {
   // 2. The set.
   let set = (await listSets()).find((s) => s.name === SET_NAME);
   if (!set) {
-    const created = await addSet(SET_NAME, `All ${built.length} problems from docs/PROBLEM-BANK.md, for testing the judge.`, 99);
+    const created = await addSet(SET_NAME, `All ${built.length} problems from the problem bank, for testing the judge.`, 99);
     assert.ok(created.ok, JSON.stringify(created));
     set = (await listSets()).find((s) => s.name === SET_NAME);
   }

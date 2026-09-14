@@ -44,9 +44,6 @@ yarn event status
 yarn event stop
 ```
 
-See `docs/DEPLOY.md` for deployment and pre-event verification, and
-`docs/FINDINGS.md` for what the judge does at its edges.
-
 ---
 
 Made by NTU Women In Tech
