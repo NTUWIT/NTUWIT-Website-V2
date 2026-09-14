@@ -211,10 +211,10 @@ const CASES: Case[] = [
     verdict: "runtime_error",
     stderrIncludes: "printed more than the judge accepts",
     solutions: {
-      python: `def noisy(n):\n    print("x" * 5000)\n    return n\n`,
-      javascript: `function noisy(n) {\n  console.log("x".repeat(5000));\n  return n;\n}\n`,
-      cpp: `long long noisy(long long n) {\n    std::cout << std::string(5000, 'x');\n    return n;\n}\n`,
-      java: `class Solution {\n    static long noisy(long n) {\n        System.out.println("x".repeat(5000));\n        return n;\n    }\n}\n`,
+      python: `def noisy(n):\n    print("x" * 100000)\n    return n\n`,
+      javascript: `function noisy(n) {\n  console.log("x".repeat(100000));\n  return n;\n}\n`,
+      cpp: `long long noisy(long long n) {\n    std::cout << std::string(100000, 'x');\n    return n;\n}\n`,
+      java: `class Solution {\n    static long noisy(long n) {\n        System.out.println("x".repeat(100000));\n        return n;\n    }\n}\n`,
     },
   },
   {
@@ -367,6 +367,17 @@ const CASES: Case[] = [
       javascript: `function anyPair(nums, target) {\n  return [0, 0];\n}\n`,
       cpp: `std::vector<long long> anyPair(std::vector<long long> nums, long long target) {\n    return {0, 0};\n}\n`,
       java: `class Solution {\n    static long[] anyPair(long[] nums, long target) {\n        return new long[]{0, 0};\n    }\n}\n`,
+    },
+  },
+  {
+    capability: "Participant code cannot open the test file",
+    signature: { name: "peek", params: [{ name: "n", type: "int" }], returns: "bool" },
+    tests: [{ stdin: "[1]", expectedStdout: "false" }],
+    solutions: {
+      python: `import os\n\ndef peek(n):\n    return os.path.exists("input.json")\n`,
+      javascript: `function peek(n) {\n  return require("fs").existsSync("input.json");\n}\n`,
+      cpp: `bool peek(long long n) {\n    return std::ifstream("input.json").good();\n}\n`,
+      java: `class Solution {\n    static boolean peek(long n) {\n        return java.nio.file.Files.exists(java.nio.file.Paths.get("input.json"));\n    }\n}\n`,
     },
   },
 ];

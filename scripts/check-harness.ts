@@ -97,7 +97,7 @@ const oversized = validateProblem({
   points: 100,
   timeLimitMs: 5000,
   starterCode: { python: "x", javascript: "x", cpp: "x", java: "x" },
-  tests: [{ stdin: JSON.stringify([Array(400).fill(1000)]), expectedStdout: JSON.stringify(Array(400).fill(1000)), isSample: true }],
+  tests: [{ stdin: JSON.stringify([Array(20000).fill(1000)]), expectedStdout: JSON.stringify(Array(20000).fill(1000)), isSample: true }],
 });
 assert.ok(oversized.some((p) => p.includes("can print at most")), "an answer past the output limit is rejected");
 

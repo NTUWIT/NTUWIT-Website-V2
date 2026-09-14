@@ -35,6 +35,12 @@ import { CPP as CPP_TYPE, JAVA as JAVA_TYPE } from "@/lib/problems/starter";
  * be `{"values":[...],"cycleAt":k}`, whose tail links back to node k.
  */
 
+/**
+ * Where C++ and Java programs receive the test. `execute` replaces it with the
+ * test's text as string literals, one test at a time.
+ */
+export const INPUT_MARKER = "/*@@WIT_INPUT@@*/";
+
 const CPP_READER: Record<ParamType, string> = {
   int: "__rd_int()",
   double: "__rd_double()",
@@ -106,9 +112,16 @@ const mutatedIndex = (sig: Signature) => sig.params.findIndex((p) => p.name === 
 const PY_RUNTIME = `import json as __json, sys as __sys, io as __io, contextlib as __ctx
 import threading as __threading, traceback as __traceback
 
-# The test is read before the participant's code runs, so nothing they write
-# can consume it.
-__RAW = __sys.stdin.read()
+# The test arrives as input.json. It is read and deleted before the
+# participant's code runs, so nothing they write can open it, including an
+# interactive problem's hidden values.
+import os as __os
+try:
+    with open("input.json", encoding="utf-8") as __f:
+        __RAW = __f.read()
+    __os.remove("input.json")
+except FileNotFoundError:
+    __RAW = __sys.stdin.read()
 __sys.stdin = __io.StringIO("")
 
 class ListNode:
@@ -632,7 +645,15 @@ ${javascriptBody(sig)}
 }
 
 if (isMainThread) {
-  const raw = require("fs").readFileSync(0, "utf8");
+  // Read and delete input.json before any participant code loads.
+  const fs = require("fs");
+  let raw;
+  try {
+    raw = fs.readFileSync("input.json", "utf8");
+    try { fs.unlinkSync("input.json"); } catch {}
+  } catch {
+    raw = fs.readFileSync(0, "utf8");
+  }
   // A worker gets a large stack; Node's default overflows near 10,000 frames,
   // which an ordinary recursive DFS reaches at LeetCode sizes.
   let worker = null;
@@ -960,7 +981,9 @@ static ucontext_t __main_ctx, __solve_ctx;
 static void __trampoline() { __solve(); }
 
 int main() {
-    std::ostringstream __ss; __ss << std::cin.rdbuf(); __in = __ss.str();
+    // The test is compiled into the program (see INPUT_MARKER): Piston
+    // truncates stdin at about 200 KB and compiles every file it is sent.
+    __in = std::string(${INPUT_MARKER});
     const size_t size = 256u << 20;
     void *stack = malloc(size);
     if (!stack) { __solve(); return 0; }
@@ -1432,7 +1455,9 @@ ${JAVA_RUNTIME}${kind ? JAVA_KIND_RUNTIME[kind] : ""}
 ${javaSolve(sig)}
 
     public static void main(String[] args) throws Exception {
-        in = new String(System.in.readAllBytes(), "UTF-8");
+        // The test is compiled into the program (see INPUT_MARKER): Piston
+        // truncates stdin at about 200 KB and compiles every file it is sent.
+        in = String.join("", new String[] { ${INPUT_MARKER} });
         // The container's default charset is not UTF-8, so answers and debug
         // output both go through streams that are explicitly UTF-8. Without
         // this every non-ASCII character is written as '?'.

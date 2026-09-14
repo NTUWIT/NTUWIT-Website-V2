@@ -83,7 +83,8 @@ const checkerProgram = (checker: string) => `import json, sys
 
 ${checker}
 
-cases = json.loads(sys.stdin.read())
+with open("input.json", encoding="utf-8") as f:
+    cases = json.loads(f.read())
 verdicts = []
 for case in cases:
     try:
