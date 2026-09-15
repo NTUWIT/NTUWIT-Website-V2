@@ -48,9 +48,9 @@ export function Split({
   }, []);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="@container flex min-h-0 flex-1 flex-col">
       {/* The tab strip exists only where the panes cannot coexist. */}
-      <div className="flex shrink-0 items-center gap-1 px-3 pb-2 lg:hidden">
+      <div className="flex shrink-0 items-center gap-1 px-3 pb-2 @min-[900px]:hidden">
         <TabButton active={pane === "problem"} onClick={() => setPane("problem")}>
           {leftLabel}
         </TabButton>
@@ -59,7 +59,7 @@ export function Split({
         </TabButton>
       </div>
 
-      <div ref={frame} className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div ref={frame} className="flex min-h-0 flex-1 flex-col @min-[900px]:flex-row">
         {/*
          * The percentage is a width, so it is only applied once the panes sit
          * side by side. Left on the element at every width it would set the
@@ -67,7 +67,7 @@ export function Split({
          */}
         <div
           style={{ "--split": `${percent}%` } as React.CSSProperties}
-          className={`min-h-0 lg:flex lg:shrink-0 lg:basis-[var(--split)] ${
+          className={`min-h-0 @min-[900px]:flex @min-[900px]:shrink-0 @min-[900px]:basis-[var(--split)] ${
             pane === "problem" ? "flex flex-1 flex-col" : "hidden"
           }`}
         >
@@ -85,13 +85,13 @@ export function Split({
             if (event.key === "ArrowRight") setPercent((p) => Math.min(65, p + 2));
           }}
           tabIndex={0}
-          className="group hidden w-2 shrink-0 cursor-col-resize items-center justify-center outline-none lg:flex"
+          className="group hidden w-2 shrink-0 cursor-col-resize items-center justify-center outline-none @min-[900px]:flex"
         >
           <span className="h-10 w-[2px] rounded-full bg-ide-panel-3 transition group-hover:bg-ide-accent group-focus-visible:bg-ide-accent" />
         </div>
 
         <div
-          className={`min-h-0 min-w-0 lg:flex lg:flex-1 lg:flex-col ${
+          className={`min-h-0 min-w-0 @min-[900px]:flex @min-[900px]:flex-1 @min-[900px]:flex-col ${
             pane === "code" ? "flex flex-1 flex-col" : "hidden"
           }`}
         >

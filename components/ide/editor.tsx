@@ -25,6 +25,9 @@ import {
   type Tone,
 } from "@/components/ide/primitives";
 import { useTheme } from "@/components/ide/theme";
+import { useVisualizationDock } from "@/components/ide/visualization-workspace";
+import { VisualizationPanel, type VisualizationSnapshot } from "@/components/ide/visualization";
+import { buildVisualization, type VisualizationSignature } from "@/lib/visualization/python-tutor";
 
 import {
   LANGUAGES,
@@ -263,6 +266,7 @@ export type PastSubmission = {
 
 type EditorProps = {
   problemId: string;
+  visualizationSignature: VisualizationSignature;
   starterCode: Partial<Record<Language, string>>;
   samples: SampleTest[];
   history: PastSubmission[];
@@ -287,6 +291,7 @@ type Tab = "result" | "custom" | "history";
 
 function EditorPane({
   problemId,
+  visualizationSignature,
   starterCode,
   samples,
   history,
@@ -307,6 +312,25 @@ function EditorPane({
   const [submitResult, setSubmitResult] = useState<SubmitResponse | null>(null);
   const router = useRouter();
   const theme = useTheme();
+  const visualizationDock = useVisualizationDock();
+  const [visualizationOpen, setVisualizationOpen] = useState(false);
+  const [visualization, setVisualization] = useState<VisualizationSnapshot | null>(null);
+  const [visualizationError, setVisualizationError] = useState<string | null>(null);
+  const [visualizationInput, setVisualizationInput] = useState("0");
+  const chosenInput = visualizationInput === "custom" ? customArgs : samples[Number(visualizationInput)]?.stdin ?? "";
+  const chosenLabel = visualizationInput === "custom" ? "Custom input" : `Sample ${Number(visualizationInput) + 1}`;
+  const onVisualize = () => {
+    setVisualizationOpen(true);
+    setConfirming(false);
+    setVisualizationError(null);
+    try {
+      const result = buildVisualization({ language, source, signature: visualizationSignature, input: chosenInput });
+      setVisualization({ ...result, source, input: chosenInput, label: chosenLabel, revision: Date.now() });
+    } catch (error) {
+      setVisualization(null);
+      setVisualizationError(error instanceof Error ? error.message : "Unable to prepare visualization. Try again.");
+    }
+  };
 
   // Debounced local persistence, no server round-trip per keystroke.
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -346,6 +370,7 @@ function EditorPane({
   );
 
   const onRun = async () => {
+    setVisualizationOpen(false);
     setBusy("run");
     setConfirming(false);
     setSubmitResult(null);
@@ -366,6 +391,7 @@ function EditorPane({
       return;
     }
     setConfirming(false);
+    setVisualizationOpen(false);
     setBusy("submit");
     setRunResult(null);
     setTab("result");
@@ -439,7 +465,18 @@ function EditorPane({
           </a>
         )}
 
-        <div className="flex w-full items-center gap-3 sm:ml-auto sm:w-auto sm:gap-5">
+        <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
+          <button
+            type="button"
+            onClick={onVisualize}
+            disabled={busy !== null || !visualizationDock}
+            aria-expanded={visualizationOpen}
+            title="Send your current code and selected input to Python Tutor"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-control bg-ide-accent-quiet px-3 py-2.5 text-sm font-medium text-ide-accent-ink transition hover:brightness-95 disabled:opacity-40 sm:flex-none"
+          >
+            <BeakerIcon className="h-3.5 w-3.5" />
+            Visualize
+          </button>
           <button
             type="button"
             onClick={onRun}
@@ -483,6 +520,15 @@ function EditorPane({
         </div>
       </div>
 
+      <div className="flex shrink-0 flex-wrap items-center gap-2 px-3 pb-2 text-xs text-ide-ink-3">
+        <label htmlFor="visualization-input">Visualize input</label>
+        <select id="visualization-input" value={visualizationInput} onChange={(event) => setVisualizationInput(event.target.value)} className="max-w-full rounded-control bg-ide-panel px-2 py-1 text-ide-ink-2">
+          {samples.map((_, index) => <option key={index} value={String(index)}>Sample {index + 1}</option>)}
+          <option value="custom">Custom input</option>
+        </select>
+        <span>Opens your code in Python Tutor · internet required</span>
+        {visualizationInput === "custom" && <button type="button" onClick={() => { setVisualizationOpen(false); setTab("custom"); }} className="text-ide-accent-ink underline">Edit custom input</button>}
+      </div>
       {/* Unframed: the editor's own background is the page ground. */}
       <div className="min-h-0 flex-[3]">
         <MonacoEditor
@@ -517,6 +563,14 @@ function EditorPane({
           }}
         />
       </div>
+
+      {visualizationOpen && <VisualizationPanel
+        key={visualization?.revision ?? visualizationError}
+        snapshot={visualization}
+        error={visualizationError}
+        stale={Boolean(visualization && (visualization.source !== source || visualization.input !== chosenInput || visualization.label !== chosenLabel))}
+        onClose={() => setVisualizationOpen(false)}
+      />}
 
       {/* The shelf: the one place on this half of the screen with depth,
           because it is the one place that answers you. */}
