@@ -7,6 +7,7 @@ import { auth } from "@clerk/nextjs/server";
 import { Editor } from "@/components/ide/editor";
 import { ProblemList } from "@/components/ide/problem-list";
 import { ChevronIcon } from "@/components/ide/icons";
+import { VisualizationWorkspace } from "@/components/ide/visualization-workspace";
 import { Split } from "@/components/ide/split";
 import {
   getSampleTests,
@@ -133,18 +134,28 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   );
 
   return (
-    <Split
-      left={statement}
-      right={
-        <Editor
-          problemId={problem.id}
-          starterCode={problem.starterCode}
-          samples={samples}
-          history={history}
-          signedIn={Boolean(userId)}
-        />
-      }
-    />
+    <VisualizationWorkspace>
+      <Split
+        left={statement}
+        right={
+          <Editor
+            problemId={problem.id}
+            visualizationSignature={{
+              name: problem.signature.name,
+              params: problem.signature.params,
+              returns: problem.signature.returns,
+              mutates: problem.signature.mutates,
+              methods: problem.signature.methods,
+              requiresJudge: Boolean(problem.signature.provided || problem.signature.hidden?.length),
+            }}
+            starterCode={problem.starterCode}
+            samples={samples}
+            history={history}
+            signedIn={Boolean(userId)}
+          />
+        }
+      />
+    </VisualizationWorkspace>
   );
 }
 
