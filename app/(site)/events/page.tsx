@@ -9,11 +9,25 @@ import type { Metadata } from "next";
 // every route change. Next renders them server-side, so crawlers see them.
 export const metadata: Metadata = {
   title: { absolute: "Women in Tech Events at NTU Singapore | NTU WIT" },
-  description: "Explore NTU Women in Tech events, including coding workshops, industry networking, mentorship, hackathons and community programmes for students.",
-  keywords: ["NTU Women in Tech", "women in tech Singapore", "women in technology", "women in STEM", "female tech leaders", "NTU student club", "Nanyang Technological University", "Singapore tech community", "women in tech events Singapore", "coding workshops NTU", "tech networking", "student mentorship", "technology events"],
+  description:
+    "Explore NTU Women in Tech events, including coding workshops, industry networking, mentorship, hackathons and community programmes for students.",
+  keywords: [
+    "NTU Women in Tech",
+    "women in tech Singapore",
+    "women in technology",
+    "women in STEM",
+    "female tech leaders",
+    "NTU student club",
+    "Nanyang Technological University",
+    "Singapore tech community",
+    "women in tech events Singapore",
+    "coding workshops NTU",
+    "tech networking",
+    "student mentorship",
+    "technology events",
+  ],
   alternates: { canonical: "/events" },
 };
-
 
 type WitEvent = {
   name: string;
@@ -48,7 +62,7 @@ const FLAGSHIP: WitEvent[] = [
     desc: "A beginner-friendly datathon where students explore real-world problems through data, teamwork and presentations.",
   },
   {
-    name: "SheLearns — Agentic AI & Finance",
+    name: "SheLearns",
     tag: "Learning Track",
     desc: "Curated talks and workshops on the topics shaping tech: Agentic AI systems and quantitative finance.",
   },
@@ -76,7 +90,8 @@ export default function Events() {
         tag="Events"
         title={
           <>
-            Make time for <span className="italic text-primary-deep">something new.</span>
+            Make time for{" "}
+            <span className="italic text-primary-deep">something new.</span>
           </>
         }
         description="Get hands-on with code, work through an idea with a team, or talk to someone who has been where you are. Explore our workshops, competitions and mentorship programmes."
@@ -87,16 +102,11 @@ export default function Events() {
       <section className="container-wit py-12 md:py-16">
         <div className="flex items-baseline gap-3 mb-8">
           <span className="w-6 h-px bg-ink-soft" />
-          <p className="mono-eyebrow text-ink-soft text-xs">
-            Our programmes
-          </p>
+          <p className="mono-eyebrow text-ink-soft text-xs">Our programmes</p>
         </div>
         <div className="site-event-list">
           {FLAGSHIP.map((e) => (
-            <article
-              key={e.name}
-              className="site-event-row"
-            >
+            <article key={e.name} className="site-event-row">
               <div className="site-event-meta flex flex-wrap items-start justify-between gap-4 mb-4">
                 <span className="mono-eyebrow text-ink-soft text-xs">
                   {e.tag}
@@ -110,14 +120,10 @@ export default function Events() {
                   </Link>
                 )}
               </div>
-              <h3
-                className="font-display text-ink text-3xl md:text-4xl"
-              >
+              <h3 className="font-display text-ink text-3xl md:text-4xl">
                 {e.name}
               </h3>
-              <p
-                className="mt-3 max-w-2xl leading-relaxed text-ink-soft text-sm"
-              >
+              <p className="mt-3 max-w-2xl leading-relaxed text-ink-soft text-sm">
                 {e.desc}
               </p>
               {e.partners && (
@@ -146,10 +152,7 @@ export default function Events() {
         </div>
         <div className="grid md:grid-cols-3 gap-4">
           {INTERNAL.map((e) => (
-            <div
-              key={e.name}
-              className="border-t border-hairline py-6"
-            >
+            <div key={e.name} className="border-t border-hairline py-6">
               <h3 className="font-display text-xl font-semibold text-ink">
                 {e.name}
               </h3>
