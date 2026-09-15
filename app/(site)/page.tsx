@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import CodingNightsFeature from "@/components/site/CodingNightsFeature";
 import HeroScene from "@/components/site/HeroScene";
 
 import type { Metadata } from "next";
@@ -41,87 +42,50 @@ const PARTNERS = [
 const PILLARS = [
   {
     t: "Flagship Events",
-    d: "Beyond Binary, Coding Nights, SheBuilds — high-impact for all of NTU.",
+    d: "Workshops, datathons and hackathons. Come with a question, leave with something you built.",
     to: "/events",
   },
   {
     t: "WoMENTORS",
-    d: "Year-long mentorship pairing members with industry mentors and alumni.",
+    d: "Three months of one-to-one conversations with women working in technology.",
     to: "/about",
   },
   {
     t: "Community",
-    d: "A 820+ Telegram channel and the launchpad for what's next.",
-    to: "/projects",
+    d: "Meet students across disciplines, share what you know and find people to learn with.",
+    to: "/membership",
   },
 ];
 
 export default function Home() {
   return (
     <>
-      {/* HERO — fullscreen interactive grid mesh */}
-      <section className="relative overflow-hidden border-b border-hairline min-h-[88vh] flex items-center">
-        <div className="absolute inset-0">
-          <HeroScene />
-        </div>
-        <div
-          className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-background/10 pointer-events-none"
-          aria-hidden
-        />
-
-        <div className="container-wit relative pt-24 md:pt-28 pb-14 md:pb-20 w-full">
-          <div className="max-w-4xl fade-up">
-            {/* <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-background/80 backdrop-blur border border-hairline mono-eyebrow text-[10px] text-ink-soft">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" /> NTU · AY 2025/26
-            </div> */}
-            <h1 className="display text-4xl sm:text-5xl md:text-6xl lg:text-7xl mt-6 text-ink">
-              The{" "}
-              <span className="italic text-primary-deep">next generation</span>
-              <br />
-              of tech leaders.
+      {/* Main homepage with the interactive mesh. */}
+      <section className="site-home-hero relative overflow-hidden border-b border-hairline">
+        <div className="site-main-mesh absolute inset-0" aria-hidden="true"><HeroScene /></div>
+        <div className="container-wit site-hero-composition relative">
+          <div className="site-hero-copy">
+            <p className="mono-eyebrow text-ink-soft">Women in Tech · Nanyang Technological University</p>
+            <h1 className="site-home-title display mt-6 text-ink">
+              <span className="block">The next generation</span>
+              <span className="block">of <span className="italic text-primary-deep">tech leaders.</span></span>
             </h1>
+            <p className="mt-6 max-w-xl text-base leading-relaxed text-ink-soft md:text-lg">A student-led community for women in tech at NTU. Learn something new, build alongside friends and find your own way into the industry.</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
-                href="/beyond-binary"
-                className="inline-flex items-center gap-2 bg-ink text-background rounded-full px-5 py-3 text-sm font-semibold hover:bg-primary-deep hover:text-ink transition-colors"
+                href="/coding-nights#register"
+                className="inline-flex items-center gap-2 bg-ink text-background rounded-full px-5 py-3 text-sm font-semibold hover:bg-primary-deep transition-colors"
               >
-                See Beyond Binary <ArrowUpRight size={16} />
+                Explore Coding Nights <ArrowUpRight size={16} />
               </Link>
-              <Link
-                href="/recruit#recruitment-form"
-                className="inline-flex items-center gap-2 border border-ink rounded-full px-5 py-3 text-sm font-semibold hover:bg-blush transition-colors"
-              >
-                Join the club
-              </Link>
-              <a
-                href="https://forms.cloud.microsoft/r/9bnx8G5Hqx"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 border border-ink rounded-full px-5 py-3 text-sm font-semibold hover:bg-blush transition-colors"
-              >
-                Membership Registration
-              </a>
-            </div>
-
-            <div className="mt-12 grid grid-cols-3 gap-6 max-w-lg">
-              {[
-                { v: "660+", l: "Hackers" },
-                { v: "820+", l: "Community" },
-                { v: "8.7×", l: "2-yr growth" },
-              ].map((s) => (
-                <div key={s.l} className="border-t border-ink/20 pt-3">
-                  <div className="display text-2xl md:text-3xl text-ink">
-                    {s.v}
-                  </div>
-                  <div className="mono-eyebrow text-[9px] text-ink-soft mt-1">
-                    {s.l}
-                  </div>
-                </div>
-              ))}
+              <Link href="/membership" className="inline-flex items-center gap-2 px-2 py-3 text-sm font-semibold underline underline-offset-4 hover:text-primary-deep">Join WIT <ArrowUpRight size={16} /></Link>
             </div>
           </div>
         </div>
+        <div className="container-wit site-hero-baseline"><span>Student-led. Across disciplines.</span><a href="#explore-wit">Explore WIT <span aria-hidden="true">↓</span></a></div>
       </section>
+
+      <CodingNightsFeature />
 
       {/* STATS BENTO */}
       <section className="container-wit py-16 md:py-20">
@@ -129,7 +93,7 @@ export default function Home() {
           <div>
             <p className="mono-eyebrow text-ink-soft text-xs">By the numbers</p>
             <h2 className="display text-3xl md:text-4xl mt-3 max-w-xl font-semibold">
-              A year of reach, rigour and recognition.
+              A community built by showing up.
             </h2>
           </div>
           <Link
@@ -140,74 +104,46 @@ export default function Home() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {STATS.map((s, i) => (
-            <div
-              key={s.label}
-              className={`group relative p-5 md:p-6 rounded-lg border transition-all duration-300 hover:shadow-soft ${
-                i === 0
-                  ? "lg:col-span-2 bg-secondary/60 border-hairline"
-                  : i === 3
-                    ? "bg-secondary/40 border-hairline"
-                    : "border-hairline bg-card"
-              }`}
-            >
-              <div className="font-display text-3xl md:text-4xl font-semibold text-ink">
-                {s.value}
-              </div>
-              <div className="mt-2 text-xs text-ink-soft leading-snug max-w-[20ch]">
-                {s.label}
-              </div>
+        <dl className="site-statistics grid grid-cols-2 gap-x-8 gap-y-10 border-t border-hairline pt-8 lg:grid-cols-4">
+          {STATS.map((s) => (
+            <div key={s.label}>
+              <dd className="display text-4xl md:text-5xl">{s.value}</dd>
+              <dt className="mt-3 max-w-[24ch] text-sm text-ink-soft">{s.label}</dt>
             </div>
           ))}
-        </div>
+        </dl>
       </section>
 
-      {/* PARTNERS MARQUEE */}
-      <section className="border-y border-hairline py-8 md:py-10 overflow-hidden bg-secondary/40">
-        <p className="container-wit mono-eyebrow text-ink-soft text-xs mb-4">
-          Industry partners & judges
-        </p>
-        <div className="relative">
-          <div className="flex marquee gap-12 whitespace-nowrap px-container-wit">
-            {[...PARTNERS, ...PARTNERS].map((p, i) => (
-              <span
-                key={i}
-                className="font-display text-xl md:text-2xl text-ink-soft hover:text-ink transition-colors"
-              >
-                {p}{" "}
-                <span
-                  className="mx-3 inline-block h-4 w-px bg-primary/40 align-middle"
-                  aria-hidden="true"
-                />
-              </span>
-            ))}
-          </div>
-        </div>
+      <section className="container-wit border-y border-hairline py-9">
+        <p className="mono-eyebrow text-ink-soft">People from across the industry have joined us</p>
+        <ul className="mt-6 flex flex-wrap gap-x-8 gap-y-3 text-sm text-ink-soft">
+          {PARTNERS.map((partner) => <li key={partner}>{partner}</li>)}
+        </ul>
       </section>
 
       {/* WHAT WE DO */}
-      <section className="container-wit py-16 md:py-20 grid lg:grid-cols-12 gap-8 md:gap-10">
+      <section id="explore-wit" className="site-explore container-wit scroll-mt-24 py-16 md:py-20 grid lg:grid-cols-12 gap-8 md:gap-10">
         <div className="lg:col-span-4">
           <p className="mono-eyebrow text-ink-soft text-xs">What we do</p>
           <h2 className="display text-3xl md:text-4xl mt-3 font-semibold">
-            Three pillars.
+            Find your
             <br />
-            One mission.
+            next thing.
           </h2>
         </div>
-        <div className="lg:col-span-8 grid sm:grid-cols-3 gap-4">
-          {PILLARS.map((c) => (
+        <div className="lg:col-span-8 divide-y divide-black/10 border-y border-hairline">
+          {PILLARS.map((c, index) => (
             <Link
               key={c.t}
               href={c.to}
-              className="group p-6 rounded-lg border border-hairline bg-card hover:bg-secondary/60 hover:shadow-soft transition-all duration-300"
+              className="site-programme-link group relative block py-7 pr-10 transition-colors"
             >
-              <div className="font-display text-xl mb-3">{c.t}</div>
+              <span className="site-programme-number" aria-hidden="true">0{index + 1}</span>
+              <div className="font-display text-2xl mb-3">{c.t}</div>
               <p className="text-sm text-ink-soft leading-relaxed">{c.d}</p>
               <ArrowUpRight
-                size={18}
-                className="mt-6 opacity-40 group-hover:opacity-100 group-hover:text-primary-deep transition"
+                size={28}
+                className="site-programme-arrow absolute right-1 top-8 transition"
               />
             </Link>
           ))}
