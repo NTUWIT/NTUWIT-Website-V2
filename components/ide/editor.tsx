@@ -598,7 +598,7 @@ function CustomInput({
         onClick={() => onChange(example)}
         className="mt-2 rounded-control px-2 py-2 text-xs text-ide-ink-3 transition hover:bg-ide-panel-2 hover:text-ide-ink-2"
       >
-        Start from sample 1: <span className="font-mono">{example}</span>
+        Start from sample 1: <span className="font-mono break-all">{example}</span>
       </button>
     </div>
   );

@@ -67,7 +67,7 @@ export function Split({
          */}
         <div
           style={{ "--split": `${percent}%` } as React.CSSProperties}
-          className={`min-h-0 lg:flex lg:shrink-0 lg:basis-[var(--split)] ${
+          className={`min-h-0 min-w-0 lg:flex lg:shrink-0 lg:basis-[var(--split)] ${
             pane === "problem" ? "flex flex-1 flex-col" : "hidden"
           }`}
         >

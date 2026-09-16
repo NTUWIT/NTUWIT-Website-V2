@@ -15,6 +15,7 @@ import assert from "node:assert/strict";
 
 import { addSet, moveProblem, saveProblem } from "@/app/(admin)/admin/actions";
 import { getAllTests, getProblemBySlug, listSets } from "@/lib/db/queries";
+import { starterCodeFor } from "@/lib/problems/starter";
 import { built } from "./problem-bank";
 import { stubSession } from "./stubs/clerk-server";
 
@@ -79,6 +80,7 @@ async function main() {
       // edit path, so a rerun brings the database back in line.
       const stored = await getAllTests(existing.id);
       const unchanged =
+        canonical(existing.starterCode) === canonical(starterCodeFor(payload.signature)) &&
         canonical(existing.signature) === canonical(payload.signature) &&
         stored.length === payload.tests.length &&
         payload.tests.every((t) => stored.some((s) => s.stdin === t.stdin && s.expectedStdout === t.expectedStdout && s.isSample === t.isSample));
