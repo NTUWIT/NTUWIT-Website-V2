@@ -23,7 +23,9 @@ export default function HeroScene() {
     const g = ctx;
 
     const readHsl = (variable: string, alpha = 1) => {
-      const raw = getComputedStyle(document.documentElement)
+      // Site tokens are scoped to .wit-site and inherited by this canvas.
+      // Reading them from the document root produces invalid (black) colors.
+      const raw = getComputedStyle(view)
         .getPropertyValue(variable)
         .trim();
       return `hsl(${raw} / ${alpha})`;
