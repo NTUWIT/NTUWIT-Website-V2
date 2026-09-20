@@ -233,21 +233,29 @@
      flash, and never sit under text being read. */
 }
 
-/* The trace docks beside the workspace; on small screens it is a right drawer. */
-.wit-visualization-dock:empty {
+/* The trace docks beside the workspace; on small screens it is a right drawer.
+   The dock carries only the seam and the slot, so it is empty of *content* only
+   when the portal has nothing in it. */
+.wit-visualization-dock:not(:has(.wit-visualization-slot > *)) {
   display: none;
 }
 
 .wit-visualization-dock {
+  display: flex;
   position: fixed;
   inset: 3.25rem 0 0 auto;
   z-index: 30;
-  width: min(100%, 780px);
-  padding: 0 12px 12px 6px;
+  /* The trace is the widest thing on screen; on a laptop it takes nearly all
+     of it rather than being cropped to a column it does not fit. */
+  width: min(100%, 940px);
+  padding: 0 12px 12px 0;
 }
 
-.wit-visualization-dock:has([data-collapsed="true"]) {
-  width: 56px;
+.wit-visualization-slot {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
 }
 
 @media (min-width: 1280px) {
@@ -255,11 +263,10 @@
     position: static;
     z-index: auto;
     flex-shrink: 0;
-    width: min(46vw, 820px);
+    /* Half the bench, and never narrower than the trace needs, so the editor
+       keeps a usable column and nothing is cut off on the right. Drag the seam
+       to override this; the inline width then wins. */
+    width: clamp(560px, 50vw, 900px);
     min-height: 0;
-  }
-
-  .wit-visualization-dock:has([data-expanded="true"]):not(:has([data-collapsed="true"])) {
-    width: min(65vw, 1120px);
   }
 }

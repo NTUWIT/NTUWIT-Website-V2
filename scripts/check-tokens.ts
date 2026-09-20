@@ -10,7 +10,7 @@
  * Run: yarn test
  */
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const NAMESPACES = [
@@ -26,15 +26,10 @@ const BUILT_IN = new Set([
   "transparent", "black", "white", "auto", "px", "mono", "sans", "serif", "balance",
 ]);
 
-function walk(dir: string, out: string[] = []): string[] {
-  for (const entry of readdirSync(dir)) {
-    if (entry === "node_modules" || entry === ".next" || entry.startsWith(".")) continue;
-    const path = join(dir, entry);
-    if (statSync(path).isDirectory()) walk(path, out);
-    else if (/\.(tsx|ts)$/.test(entry)) out.push(path);
-  }
-  return out;
-}
+const walk = (dir: string): string[] =>
+  readdirSync(dir, { recursive: true, encoding: "utf8" })
+    .filter((path) => /\.tsx?$/.test(path) && !path.split(/[\\/]/).some((part) => part.startsWith(".")))
+    .map((path) => join(dir, path));
 
 const css = ["styles/ide.css", "styles/site.css"].map((f) => readFileSync(f, "utf8")).join("\n");
 

@@ -10,7 +10,7 @@ import { starterFor } from "@/lib/problems/starter";
 import { PARAM_TYPES, type ParamType, type Signature } from "@/lib/problems/signature";
 import { LANGUAGES } from "@/lib/languages";
 import { isSessionOpen, sessionState } from "@/lib/session";
-import { expectedForm, matchesType } from "@/lib/problems/validate";
+import { expectedForm, matchesType, validateProblem } from "@/lib/problems/validate";
 
 /* ---------- normaliseOutput / outputMatches ---------- */
 
@@ -254,3 +254,67 @@ console.log("check-units: all assertions passed");
 }
 
 console.log("check-units: session window assertions passed");
+
+/* ---------- the entry point each language generates ---------- */
+
+{
+  const sig: Signature = {
+    name: "two_things",
+    params: [
+      { name: "nums", type: "int[]" },
+      { name: "label", type: "string" },
+    ],
+    returns: "string",
+  };
+  const src = "USER_CODE_MARKER";
+
+  // Every language calls the function under its own naming convention and
+  // keeps the participant's source intact.
+  const py = wrapSource({ language: "python", source: src, signature: sig });
+  assert.ok(py.includes('ns.get("two_things")'), "python calls the snake_case name");
+
+  const js = wrapSource({ language: "javascript", source: src, signature: sig });
+  assert.ok(js.includes('typeof twoThings === "function"'), "javascript calls the camelCase name");
+
+  const cpp = wrapSource({ language: "cpp", source: src, signature: sig });
+  assert.ok(cpp.includes("twoThings(__a0, __a1)"), "c++ passes both arguments");
+  assert.ok(cpp.indexOf(src) < cpp.indexOf("int main()"), "user code precedes main");
+
+  const java = wrapSource({ language: "java", source: src, signature: sig });
+  assert.ok(java.includes("Solution.twoThings(a0, a1)"), "java calls through Solution");
+  assert.ok(java.includes("public class Main"), "java entry point is Main");
+
+  // Node types are built before the call and flattened after it.
+  const nodes: Signature = {
+    name: "reverse_list",
+    params: [{ name: "head", type: "ListNode" }, { name: "root", type: "TreeNode" }],
+    returns: "ListNode",
+  };
+  const pyNodes = wrapSource({ language: "python", source: src, signature: nodes });
+  assert.ok(pyNodes.includes("args[0] = __to_list(args[0])"), "python builds the list");
+  assert.ok(pyNodes.includes("args[1] = __to_tree(args[1])"), "python builds the tree");
+  assert.ok(pyNodes.includes("__fmt(__from_list(result))"), "python flattens the returned list");
+  assert.ok(wrapSource({ language: "java", source: src, signature: nodes }).includes("serList((ListNode) result)"));
+  assert.ok(wrapSource({ language: "cpp", source: src, signature: nodes }).includes("ListNode* __a0 = __rd_list()"));
+  assert.ok(starterFor("cpp", nodes).includes("do not redefine"), "starter says the nodes are provided");
+}
+
+/* ---------- a test the judge cannot carry is refused when authored ---------- */
+
+{
+  const oversized = validateProblem({
+    slug: "too-big",
+    signature: { name: "f", params: [{ name: "nums", type: "int[]" }], returns: "int[]" },
+    points: 100,
+    timeLimitMs: 5000,
+    starterCode: { python: "x", javascript: "x", cpp: "x", java: "x" },
+    tests: [{
+      stdin: JSON.stringify([Array(20000).fill(1000)]),
+      expectedStdout: JSON.stringify(Array(20000).fill(1000)),
+      isSample: true,
+    }],
+  });
+  assert.ok(oversized.some((p) => p.includes("can print at most")), "an answer past the output limit is rejected");
+}
+
+console.log("check-units: harness and authoring assertions passed");

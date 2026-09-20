@@ -11,10 +11,3 @@ export const LANGUAGE_LABELS: Record<Language, string> = {
   java: "Java",
 };
 
-/** Monaco's language identifiers differ from ours for some languages. */
-export const MONACO_LANGUAGE: Record<Language, string> = {
-  python: "python",
-  javascript: "javascript",
-  cpp: "cpp",
-  java: "java",
-};

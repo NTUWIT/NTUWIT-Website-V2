@@ -10,6 +10,7 @@ import { ChevronIcon } from "@/components/ide/icons";
 import { VisualizationWorkspace } from "@/components/ide/visualization-workspace";
 import { Split } from "@/components/ide/split";
 import {
+  countTests,
   getSampleTests,
   listProblems,
   getProblemBySlug,
@@ -48,8 +49,11 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     );
   }
 
-  // Sample tests only, hidden tests never reach the client.
+  // Sample tests only, hidden tests never reach the client. The counts beside
+  // them are safe: how many tests exist says nothing about what they contain.
   const samples = await getSampleTests(problem.id);
+  const counts = await countTests(problem.id);
+  const hiddenCount = Math.max(0, counts.total - counts.samples);
 
   // History is the signed-in participant's own rows only, keyed by the session
   // id rather than anything the client could supply.
@@ -108,6 +112,21 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                     </div>
                   ))}
                 </dl>
+
+                {/* Hidden tests are named before someone meets them, never
+                    after. The count is safe; the content never leaves the
+                    server. */}
+                {hiddenCount > 0 && (
+                  <p className="mt-3 text-xs leading-relaxed text-ide-ink-3">
+                    <span className="tnum text-ide-ink-2">
+                      Submit also runs {hiddenCount} test{hiddenCount === 1 ? "" : "s"} you cannot see.
+                    </span>{" "}
+                    They call the same function with the same shape of input, and
+                    they tend to cover the awkward cases — an empty list, a single
+                    item, the largest value. Every test you pass counts, so a
+                    partly working answer still scores.
+                  </p>
+                )}
               </div>
             )}
 
@@ -150,6 +169,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             }}
             starterCode={problem.starterCode}
             samples={samples}
+            hiddenCount={hiddenCount}
             history={history}
             signedIn={Boolean(userId)}
           />

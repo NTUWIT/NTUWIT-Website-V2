@@ -235,15 +235,24 @@ export function Console({
                       </p>
                       {/* The full list on demand, in a box that scrolls rather
                           than a sentence that runs down the page. */}
-                      {members.length > PREVIEW && (
+                      {members.length > 0 && (
                         <details className="mt-1.5 text-xs">
                           <summary className="cursor-pointer text-ide-ink-3 hover:text-ide-ink">
                             Show all {members.length}
                           </summary>
+                          {/* Each one links to its own page, which is where a
+                              problem is edited, moved to another set, or
+                              deleted. Without this a problem in a set has no
+                              reachable actions at all. */}
                           <ol className="mt-2 max-h-48 list-decimal overflow-y-auto overscroll-contain rounded-inset bg-ide-panel-2 py-2 pr-3 pl-8 text-ide-ink-2">
                             {members.map((problem) => (
                               <li key={problem.id} className="py-0.5">
-                                {problem.title}
+                                <Link
+                                  href={`/admin/problems/${problem.id}`}
+                                  className="transition hover:text-ide-ink"
+                                >
+                                  {problem.title}
+                                </Link>
                               </li>
                             ))}
                           </ol>

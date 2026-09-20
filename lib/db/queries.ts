@@ -116,6 +116,25 @@ export async function getSampleTests(problemId: string) {
     .orderBy(asc(testCases.order));
 }
 
+/**
+ * How many tests a problem has, and how many of them are shown.
+ *
+ * Counts only. A count carries no stdin, no expected output and no hint about
+ * either, so unlike `getAllTests` this is safe to send to a participant, and it
+ * is what lets the interface say that hidden tests exist before someone submits
+ * and is surprised by them.
+ */
+export async function countTests(problemId: string) {
+  const [row] = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      samples: sql<number>`(count(*) filter (where ${testCases.isSample}))::int`,
+    })
+    .from(testCases)
+    .where(eq(testCases.problemId, problemId));
+  return { total: row?.total ?? 0, samples: row?.samples ?? 0 };
+}
+
 /** Server-only: includes hidden tests. Never serialise the result to a client. */
 export async function getAllTests(problemId: string) {
   return db
@@ -215,24 +234,7 @@ export async function listSubmissions(userId: string, problemId: string, limit =
     .limit(limit);
 }
 
-/**
- * The live event clock. Null means no timed session is running, which is the
- * normal state between Coding Nights.
- */
-export async function getEventEndsAt(): Promise<Date | null> {
-  const [row] = await db
-    .select({ endsAt: eventSettings.endsAt })
-    .from(eventSettings)
-    .where(eq(eventSettings.id, 1))
-    .limit(1);
-  return row?.endsAt ?? null;
-}
-
-/**
- * The clock as the console needs to render it. Reading the wall clock belongs
- * here rather than in a component body, where it counts as impure render.
- */
-/** The session window, for the judge routes and the console. */
+/** The session window: the one read of the clock row. */
 export async function getSessionWindow(): Promise<SessionWindow> {
   const [row] = await db
     .select({ startsAt: eventSettings.startsAt, endsAt: eventSettings.endsAt })
@@ -242,15 +244,19 @@ export async function getSessionWindow(): Promise<SessionWindow> {
   return { startsAt: row?.startsAt ?? null, endsAt: row?.endsAt ?? null };
 }
 
+/** The end of the window alone. Null means no timed session is running, which
+ *  is the normal state between Coding Nights. */
+export const getEventEndsAt = async (): Promise<Date | null> => (await getSessionWindow()).endsAt;
+
+/** The clock as the console renders it. Reading the wall clock belongs here
+ *  rather than in a component body, where it counts as impure render. */
 export async function getEventClock() {
   const endsAt = await getEventEndsAt();
   const running = endsAt !== null && endsAt.getTime() > Date.now();
   return {
     endsAt,
     running,
-    remainingMinutes: running
-      ? Math.max(0, Math.round((endsAt.getTime() - Date.now()) / 60_000))
-      : 0,
+    remainingMinutes: running ? Math.max(0, Math.round((endsAt.getTime() - Date.now()) / 60_000)) : 0,
   };
 }
 
@@ -347,10 +353,6 @@ export async function createSet(name: string, description: string | null, order:
     .values({ name, description, order })
     .returning({ id: problemSets.id });
   return row?.id ?? null;
-}
-
-export async function renameSet(setId: string, name: string, description: string | null) {
-  await db.update(problemSets).set({ name, description }).where(eq(problemSets.id, setId));
 }
 
 /** Deleting a set leaves its problems intact and unassigned. */

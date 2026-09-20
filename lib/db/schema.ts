@@ -111,8 +111,7 @@ export const scores = pgTable(
 
 // Single-row table holding the live event clock, so an organiser can start or
 // stop the countdown during a Coding Night without a redeploy. Always id 1.
-// ponytail: one row, one column. Add a real settings table when a second
-// setting exists.
+// One row, one column. A real settings table can wait for a second setting.
 export const eventSettings = pgTable("event_settings", {
   id: integer("id").primaryKey(),
   // The session window. `endsAt` null means no timer and the session stays

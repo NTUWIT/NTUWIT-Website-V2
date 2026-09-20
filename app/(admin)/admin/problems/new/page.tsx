@@ -2,8 +2,12 @@ import Link from "next/link";
 
 import { ProblemWizard } from "@/components/admin/ProblemWizard";
 import { ChevronIcon } from "@/components/ide/icons";
+import { listSets } from "@/lib/db/queries";
 
-export default function NewProblemPage() {
+export const dynamic = "force-dynamic";
+
+export default async function NewProblemPage() {
+  const sets = await listSets();
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
       <Link
@@ -24,7 +28,7 @@ export default function NewProblemPage() {
         until its set is opened from the console.
       </p>
 
-      <ProblemWizard />
+      <ProblemWizard sets={sets.map(({ id, name }) => ({ id, name }))} />
     </div>
   );
 }

@@ -142,8 +142,8 @@ export async function execute(args: {
   // package compiles inside the run step instead, so a javac failure arrives
   // as a non-zero run exit and is indistinguishable from a crash without
   // reading the message.
-  // ponytail: string match on javac's own wording; if more languages behave
-  // this way, move to a per-language compile-failure matcher.
+  // A string match on javac's own wording. If another language ever behaves
+  // this way, this becomes a per-language compile-failure matcher.
   const javacFailed =
     !compile && run.code !== 0 && /^error: compilation failed$/m.test(run.stderr);
 
