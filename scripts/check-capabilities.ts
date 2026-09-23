@@ -380,6 +380,47 @@ const CASES: Case[] = [
       java: `class Solution {\n    static boolean peek(long n) {\n        return java.nio.file.Files.exists(java.nio.file.Paths.get("input.json"));\n    }\n}\n`,
     },
   },
+  {
+    capability: "Helpers outside the submitted function: defined after it, recursive, sharing module-level state",
+    signature: { name: "count_paths", params: [{ name: "rows", type: "int" }, { name: "cols", type: "int" }], returns: "int" },
+    tests: [
+      { stdin: "[3,7]", expectedStdout: "28" },
+      { stdin: "[1,1]", expectedStdout: "1" },
+      { stdin: "[18,18]", expectedStdout: "2333606220" },
+    ],
+    solutions: {
+      python: `MEMO = {}\n\ndef count_paths(rows, cols):\n    return walk(rows - 1, cols - 1)\n\ndef walk(r, c):\n    if r == 0 or c == 0:\n        return 1\n    if (r, c) not in MEMO:\n        MEMO[(r, c)] = walk(r - 1, c) + walk(r, c - 1)\n    return MEMO[(r, c)]\n`,
+      javascript: `const memo = new Map();\n\nfunction countPaths(rows, cols) {\n  return walk(rows - 1, cols - 1);\n}\n\nfunction walk(r, c) {\n  if (r === 0 || c === 0) return 1;\n  const key = r * 100 + c;\n  if (!memo.has(key)) memo.set(key, walk(r - 1, c) + walk(r, c - 1));\n  return memo.get(key);\n}\n`,
+      cpp: `static std::map<std::pair<long long, long long>, long long> memo;\n\nlong long walk(long long r, long long c);\n\nlong long countPaths(long long rows, long long cols) {\n    return walk(rows - 1, cols - 1);\n}\n\nlong long walk(long long r, long long c) {\n    if (r == 0 || c == 0) return 1;\n    auto key = std::make_pair(r, c);\n    auto it = memo.find(key);\n    if (it != memo.end()) return it->second;\n    return memo[key] = walk(r - 1, c) + walk(r, c - 1);\n}\n`,
+      java: `import java.util.*;\n\nclass Solution {\n    static long countPaths(long rows, long cols) {\n        return Grid.walk(rows - 1, cols - 1);\n    }\n}\n\nclass Grid {\n    static final Map<Long, Long> memo = new HashMap<>();\n\n    static long walk(long r, long c) {\n        if (r == 0 || c == 0) return 1;\n        long key = r * 100 + c;\n        Long hit = memo.get(key);\n        if (hit != null) return hit;\n        long value = walk(r - 1, c) + walk(r, c - 1);\n        memo.put(key, value);\n        return value;\n    }\n}\n`,
+    },
+  },
+  {
+    capability: "Helpers outside a design class",
+    signature: {
+      name: "MinStack",
+      params: [],
+      returns: "void",
+      methods: [
+        { name: "push", params: [{ name: "val", type: "int" }], returns: "void" },
+        { name: "pop", params: [], returns: "void" },
+        { name: "top", params: [], returns: "int" },
+        { name: "get_min", params: [], returns: "int" },
+      ],
+    },
+    tests: [
+      {
+        stdin: json([["MinStack", "push", "push", "push", "get_min", "pop", "top", "get_min"], [[], [-2], [0], [-3], [], [], [], []]]),
+        expectedStdout: "[null,null,null,null,-3,null,0,-2]",
+      },
+    ],
+    solutions: {
+      python: `def smaller(a, b):\n    return a if a < b else b\n\nclass Entry:\n    def __init__(self, val, low):\n        self.val, self.low = val, low\n\nclass MinStack:\n    def __init__(self):\n        self.items = []\n\n    def push(self, val):\n        self.items.append(Entry(val, smaller(val, self.items[-1].low) if self.items else val))\n\n    def pop(self):\n        self.items.pop()\n\n    def top(self):\n        return self.items[-1].val\n\n    def get_min(self):\n        return self.items[-1].low\n`,
+      javascript: `function smaller(a, b) {\n  return a < b ? a : b;\n}\n\nclass Entry {\n  constructor(val, low) { this.val = val; this.low = low; }\n}\n\nclass MinStack {\n  constructor() { this.items = []; }\n  push(val) { this.items.push(new Entry(val, this.items.length ? smaller(val, this.items.at(-1).low) : val)); }\n  pop() { this.items.pop(); }\n  top() { return this.items.at(-1).val; }\n  getMin() { return this.items.at(-1).low; }\n}\n`,
+      cpp: `static long long smaller(long long a, long long b) { return a < b ? a : b; }\n\nstruct Entry { long long val, low; };\n\nclass MinStack {\n    std::vector<Entry> items;\npublic:\n    MinStack() {}\n    void push(long long val) { items.push_back({val, items.empty() ? val : smaller(val, items.back().low)}); }\n    void pop() { items.pop_back(); }\n    long long top() { return items.back().val; }\n    long long getMin() { return items.back().low; }\n};\n`,
+      java: `import java.util.*;\n\nclass Entry {\n    final long val, low;\n    Entry(long val, long low) { this.val = val; this.low = low; }\n}\n\nclass MinStack {\n    private final ArrayList<Entry> items = new ArrayList<>();\n    MinStack() {}\n    void push(long val) { items.add(new Entry(val, items.isEmpty() ? val : Math.min(val, items.get(items.size() - 1).low))); }\n    void pop() { items.remove(items.size() - 1); }\n    long top() { return items.get(items.size() - 1).val; }\n    long getMin() { return items.get(items.size() - 1).low; }\n}\n`,
+    },
+  },
 ];
 
 const only = process.argv[2] as Language | undefined;

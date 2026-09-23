@@ -65,8 +65,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     : [];
 
   const statement = (
-    <aside className="flex h-full min-h-0 flex-col p-3 pt-0 lg:pr-1.5">
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-panel bg-ide-panel shadow-ide-panel">
+    <aside className="flex h-full min-h-0 min-w-0 flex-col p-3 pt-0 lg:pr-1.5">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-panel bg-ide-panel shadow-ide-panel">
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="px-5 pt-6 pb-2 sm:px-8 sm:pt-8">
             <h1 className="font-ide-display text-[2rem] leading-[1.08] font-semibold tracking-[-0.03em] text-balance sm:text-[2.6rem] sm:leading-[1.05]">
@@ -79,7 +79,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           </div>
 
           <div className="px-5 pb-8 sm:px-8">
-            <div className="max-w-[68ch] text-[0.95rem] leading-[1.75] text-ide-ink-2 [&_code]:rounded-[0.3rem] [&_code]:bg-ide-panel-2 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-ide-ink [&_h2]:mt-8 [&_h2]:mb-2 [&_h2]:font-ide-display [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-ide-ink [&_h3]:mt-8 [&_h3]:mb-2 [&_h3]:font-ide-display [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-ide-ink [&_li]:my-1.5 [&_p]:my-3.5 [&_pre]:overflow-x-auto [&_pre]:rounded-inset [&_pre]:bg-ide-panel-2 [&_pre]:p-4 [&_pre]:text-sm [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_strong]:font-semibold [&_strong]:text-ide-ink [&_ul]:list-disc [&_ul]:pl-5">
+            <div className="max-w-[68ch] text-[0.95rem] leading-[1.75] text-ide-ink-2 [&_code]:break-words [&_code]:rounded-[0.3rem] [&_code]:bg-ide-panel-2 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-ide-ink [&_h2]:mt-8 [&_h2]:mb-2 [&_h2]:font-ide-display [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-ide-ink [&_h3]:mt-8 [&_h3]:mb-2 [&_h3]:font-ide-display [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-ide-ink [&_li]:my-1.5 [&_p]:my-3.5 [&_pre]:overflow-x-auto [&_pre]:rounded-inset [&_pre]:bg-ide-panel-2 [&_pre]:p-4 [&_pre]:text-sm [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_strong]:font-semibold [&_strong]:text-ide-ink [&_ul]:list-disc [&_ul]:pl-5">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {problem.statementMd}
               </ReactMarkdown>
@@ -96,18 +96,18 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                   {samples.map((sample, index) => (
                     <div
                       key={index}
-                      className="grid gap-x-6 gap-y-1 py-3.5 font-mono text-xs sm:grid-cols-[auto_1fr_1fr] sm:items-baseline"
+                      className="grid gap-x-6 gap-y-1 py-3.5 font-mono text-xs sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] sm:items-baseline"
                     >
                       <span className="tnum font-sans text-ide-ink-3">
                         {index + 1}
                       </span>
                       <div>
                         <dt className="mb-1 font-sans text-ide-ink-3">Input</dt>
-                        <dd className="text-ide-ink">{sample.stdin}</dd>
+                        <dd className="text-ide-ink break-all">{sample.stdin}</dd>
                       </div>
                       <div>
                         <dt className="mb-1 font-sans text-ide-ink-3">Expected output</dt>
-                        <dd className="text-ide-ink">{sample.expectedStdout}</dd>
+                        <dd className="text-ide-ink break-all">{sample.expectedStdout}</dd>
                       </div>
                     </div>
                   ))}

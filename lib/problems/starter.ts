@@ -197,27 +197,6 @@ function nodeNote(language: Language, sig: Signature): string {
   return `${note.comment} Provided for you, do not redefine:\n${lines.map((l) => `${note.comment}   ${l}`).join("\n")}\n\n`;
 }
 
-/**
- * Tells the participant how their code is run, which is the whole contract:
- * the judge owns the entry point and calls the named function or class, so
- * helpers are welcome and reading input or printing the answer is not needed.
- */
-function contractNote(language: Language, sig: Signature): string {
-  const c = NODE_NOTE[language].comment;
-  const fn = language === "python" ? sig.name : camel(sig.name);
-  const what = isDesign(sig)
-    ? `The judge creates ${sig.name} and calls its methods for you.`
-    : sig.returns === "void"
-      ? `The judge calls ${fn} for you, then checks ${language === "python" ? sig.mutates : camel(sig.mutates ?? "")} after it returns.`
-      : `The judge calls ${fn} for you and checks what it returns.`;
-  const provided = sig.provided?.functions.length
-    ? `${c} The judge provides ${sig.provided.functions
-        .map((f) => `${language === "python" ? f.name : camel(f.name)}(${f.params.map((p) => (language === "python" ? p.name : camel(p.name))).join(", ")})`)
-        .join(", ")} for you to call; do not define ${sig.provided.functions.length === 1 ? "it" : "them"}.\n`
-    : "";
-  return `${c} ${what}\n${provided}${c} Add any helper functions you like; you do not need to read input or print the answer.\n\n`;
-}
-
 const pyParams = (params: Param[]) => params.map((p) => `${p.name}: ${PY_HINT[p.type]}`).join(", ");
 const cppParams = (params: Param[], mutated?: string) =>
   params.map((p) => `${CPP[p.type]}${p.name === mutated ? "&" : ""} ${camel(p.name)}`).join(", ");
@@ -316,7 +295,7 @@ ${methods
 
 export function starterFor(language: Language, sig: Signature): string {
   const body = isDesign(sig) ? designStarter(language, sig) : functionStarter(language, sig);
-  return `${nodeNote(language, sig)}${contractNote(language, sig)}${body}`;
+  return `${nodeNote(language, sig)}${body}`;
 }
 
 export const starterCodeFor = (sig: Signature) => ({
