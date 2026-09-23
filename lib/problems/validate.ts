@@ -141,7 +141,8 @@ export function expectedForm(value: unknown, type: ParamType): string {
   return JSON.stringify(value);
 }
 
-const parse = (text: string): { ok: true; value: unknown } | { ok: false } => {
+/** The one JSON reader for untrusted text: a bad parse is a value, not a throw. */
+export const parseJson = (text: string): { ok: true; value: unknown } | { ok: false } => {
   try {
     return { ok: true, value: JSON.parse(text) };
   } catch {
@@ -204,7 +205,7 @@ export function checkArguments(sig: Signature, args: unknown): string | null {
 export function checkExpected(sig: Signature, expectedText: string, args: unknown): string | null {
   const text = expectedText.trim();
   if (!text) return "The expected answer is empty.";
-  const parsed = parse(text);
+  const parsed = parseJson(text);
 
   if (!isDesign(sig)) {
     const type = answerType(sig);
@@ -333,7 +334,7 @@ export function validateProblem(problem: ProblemLike): string[] {
 
   problem.tests.forEach((test, index) => {
     const where = `test ${index + 1}`;
-    const args = parse(test.stdin);
+    const args = parseJson(test.stdin);
     if (!args.ok) {
       at(`${where}: stdin is not valid JSON`);
       return;

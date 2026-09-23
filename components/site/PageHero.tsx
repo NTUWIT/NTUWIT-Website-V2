@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import HeroScene from "@/components/site/HeroScene";
+import HeroScene from "./HeroScene";
 
 interface PageHeroProps {
   tag?: string;
@@ -15,16 +15,9 @@ export default function PageHero({
   children,
 }: PageHeroProps) {
   return (
-    <section className="relative overflow-hidden border-b border-hairline min-h-[28vh] md:min-h-[32vh] flex items-end">
-      <div className="absolute inset-0 opacity-25">
-        <HeroScene />
-      </div>
-      <div
-        className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20 pointer-events-none"
-        aria-hidden
-      />
-
-      <div className="container-wit relative pt-16 md:pt-20 pb-8 md:pb-12 w-full">
+    <section className="site-page-hero relative overflow-hidden border-b border-hairline min-h-[28vh] md:min-h-[32vh] flex items-end">
+      <div className="site-main-mesh absolute inset-0" aria-hidden="true"><HeroScene /></div>
+      <div className="container-wit relative pt-16 md:pt-20 pb-12 md:pb-16 w-full">
         <div>
           {tag && (
             <p className="mono-eyebrow text-ink-soft text-xs md:text-sm">

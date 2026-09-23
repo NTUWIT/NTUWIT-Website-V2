@@ -10,6 +10,7 @@ import {
   CheckIcon,
   ClockIcon,
   CrossIcon,
+  LockIcon,
   HistoryIcon,
   PartialIcon,
   PauseIcon,
@@ -19,17 +20,22 @@ import {
   WrenchIcon,
 } from "@/components/ide/icons";
 import {
+  ICON,
   Mark,
+  PrimaryButton,
+  SecondaryButton,
   TabButton,
   TONE,
   type Tone,
 } from "@/components/ide/primitives";
 import { useTheme } from "@/components/ide/theme";
+import { useVisualizationDock } from "@/components/ide/visualization-workspace";
+import { VisualizationPanel, type VisualizationSnapshot } from "@/components/ide/visualization";
+import { buildVisualization, type VisualizationSignature } from "@/lib/visualization/python-tutor";
 
 import {
   LANGUAGES,
   LANGUAGE_LABELS,
-  MONACO_LANGUAGE,
   type Language,
 } from "@/lib/languages";
 
@@ -54,8 +60,6 @@ const loadMonaco = async () => {
   // Without this Monaco runs its language services on the main thread and logs
   // a worker error on every mount. Only JS/TS has a dedicated worker among the
   // four languages we offer; the rest use the base editor worker.
-  // ponytail: whole-package import. Narrow to per-language entry points if the
-  // bundle size ever shows up in a real measurement.
   window.MonacoEnvironment = {
     getWorker(_workerId: string, label: string) {
       // `new Worker(new URL(...))` has to be written out literally in each
@@ -193,8 +197,13 @@ type SubmitResponse =
       runtimeMs: number;
       failedAt: number | null;
       score: number;
+      tests: SubmitTest[];
     }
   | { ok: false; error: string };
+
+/** What a client may know about a test it was never shown: which one it was,
+ *  whether it passed, and what kind of failure it was. Never its content. */
+type SubmitTest = { index: number; passed: boolean; verdict: string; isSample: boolean };
 
 const ERROR_TEXT: Record<string, { title: string; body: string }> = {
   UNAUTHENTICATED: {
@@ -263,8 +272,11 @@ export type PastSubmission = {
 
 type EditorProps = {
   problemId: string;
+  visualizationSignature: VisualizationSignature;
   starterCode: Partial<Record<Language, string>>;
   samples: SampleTest[];
+  /** How many tests Submit runs that the participant cannot see. */
+  hiddenCount: number;
   history: PastSubmission[];
   signedIn: boolean;
 };
@@ -287,8 +299,10 @@ type Tab = "result" | "custom" | "history";
 
 function EditorPane({
   problemId,
+  visualizationSignature,
   starterCode,
   samples,
+  hiddenCount,
   history,
   signedIn,
   language,
@@ -307,6 +321,25 @@ function EditorPane({
   const [submitResult, setSubmitResult] = useState<SubmitResponse | null>(null);
   const router = useRouter();
   const theme = useTheme();
+  const visualizationDock = useVisualizationDock();
+  const [visualizationOpen, setVisualizationOpen] = useState(false);
+  const [visualization, setVisualization] = useState<VisualizationSnapshot | null>(null);
+  const [visualizationError, setVisualizationError] = useState<string | null>(null);
+  const [visualizationInput, setVisualizationInput] = useState("0");
+  const chosenInput = visualizationInput === "custom" ? customArgs : samples[Number(visualizationInput)]?.stdin ?? "";
+  const chosenLabel = visualizationInput === "custom" ? "Custom input" : `Sample ${Number(visualizationInput) + 1}`;
+  const onVisualize = () => {
+    setVisualizationOpen(true);
+    setConfirming(false);
+    setVisualizationError(null);
+    try {
+      const result = buildVisualization({ language, source, signature: visualizationSignature, input: chosenInput });
+      setVisualization({ ...result, source, input: chosenInput, label: chosenLabel, revision: Date.now() });
+    } catch (error) {
+      setVisualization(null);
+      setVisualizationError(error instanceof Error ? error.message : "Unable to prepare visualization. Try again.");
+    }
+  };
 
   // Debounced local persistence, no server round-trip per keystroke.
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -346,6 +379,7 @@ function EditorPane({
   );
 
   const onRun = async () => {
+    setVisualizationOpen(false);
     setBusy("run");
     setConfirming(false);
     setSubmitResult(null);
@@ -366,6 +400,7 @@ function EditorPane({
       return;
     }
     setConfirming(false);
+    setVisualizationOpen(false);
     setBusy("submit");
     setRunResult(null);
     setTab("result");
@@ -439,13 +474,21 @@ function EditorPane({
           </a>
         )}
 
-        <div className="flex w-full items-center gap-3 sm:ml-auto sm:w-auto sm:gap-5">
-          <button
-            type="button"
-            onClick={onRun}
-            disabled={disabled}
-            className="flex flex-1 items-center justify-center gap-2 rounded-control bg-ide-panel px-4 py-2.5 text-sm font-medium text-ide-ink shadow-ide-panel transition hover:bg-ide-panel-2 disabled:opacity-40 disabled:shadow-none sm:min-w-30 sm:flex-none"
+        {/* One width for all three, so the strip reads as one row of equals and
+            never reflows as a label changes. They are the shared primitives,
+            not lookalikes: two flat panels and the one pink. */}
+        <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto [&>button]:flex-1 sm:[&>button]:min-w-32 sm:[&>button]:flex-none">
+          <SecondaryButton
+            onClick={onVisualize}
+            disabled={busy !== null || !visualizationDock}
+            aria-expanded={visualizationOpen}
+            title="Send your current code and selected input to Python Tutor"
           >
+            <BeakerIcon className="h-3.5 w-3.5" />
+            Visualize
+          </SecondaryButton>
+
+          <SecondaryButton onClick={onRun} disabled={disabled}>
             {busy === "run" ? (
               <Working label="Running" />
             ) : (
@@ -454,18 +497,9 @@ function EditorPane({
                 Run
               </>
             )}
-          </button>
+          </SecondaryButton>
 
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={disabled}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-control px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40 disabled:shadow-none sm:min-w-36 sm:flex-none ${
-              confirming
-                ? "bg-ide-warn-quiet text-ide-warn"
-                : "bg-ide-accent text-ide-on-accent hover:brightness-105"
-            }`}
-          >
+          <PrimaryButton onClick={onSubmit} disabled={disabled} armed={confirming}>
             {busy === "submit" ? (
               <Working label="Judging" />
             ) : confirming ? (
@@ -479,16 +513,29 @@ function EditorPane({
                 Submit
               </>
             )}
-          </button>
+          </PrimaryButton>
         </div>
       </div>
 
+      <div className="flex shrink-0 flex-wrap items-center gap-2 px-3 pb-2 text-xs text-ide-ink-3">
+        <label htmlFor="visualization-input">Visualize input</label>
+        <select
+          id="visualization-input"
+          value={visualizationInput}
+          onChange={(event) => setVisualizationInput(event.target.value)}
+          className="max-w-full cursor-pointer rounded-inset bg-ide-panel-2 px-2 py-1 text-ide-ink-2 outline-none transition hover:text-ide-ink"
+        >
+          {samples.map((_, index) => <option key={index} value={String(index)}>Sample {index + 1}</option>)}
+          <option value="custom">Custom input</option>
+        </select>
+        {visualizationInput === "custom" && <button type="button" onClick={() => { setVisualizationOpen(false); setTab("custom"); }} className="rounded-control text-ide-ink-3 transition hover:text-ide-ink">Edit custom input</button>}
+      </div>
       {/* Unframed: the editor's own background is the page ground. */}
       <div className="min-h-0 flex-[3]">
         <MonacoEditor
           height="100%"
           theme={`wit-${theme}`}
-          language={MONACO_LANGUAGE[language]}
+          language={language}
           value={source}
           onChange={(value) => setSource(value ?? "")}
           beforeMount={(monaco) => {
@@ -517,6 +564,14 @@ function EditorPane({
           }}
         />
       </div>
+
+      {visualizationOpen && <VisualizationPanel
+        key={visualization?.revision ?? visualizationError}
+        snapshot={visualization}
+        error={visualizationError}
+        stale={Boolean(visualization && (visualization.source !== source || visualization.input !== chosenInput || visualization.label !== chosenLabel))}
+        onClose={() => setVisualizationOpen(false)}
+      />}
 
       {/* The shelf: the one place on this half of the screen with depth,
           because it is the one place that answers you. */}
@@ -547,7 +602,7 @@ function EditorPane({
           ) : tab === "history" ? (
             <History entries={history} onRestore={setSource} signedIn={signedIn} />
           ) : (
-            <Results run={runResult} submit={submitResult} busy={busy} />
+            <Results run={runResult} submit={submitResult} busy={busy} hiddenCount={hiddenCount} />
           )}
         </div>
       </section>
@@ -637,10 +692,12 @@ function Results({
   run,
   submit,
   busy,
+  hiddenCount,
 }: {
   run: RunResponse | null;
   submit: SubmitResponse | null;
   busy: "run" | "submit" | null;
+  hiddenCount: number;
 }) {
   if (busy) {
     return (
@@ -706,12 +763,14 @@ function Results({
               </p>
               {VERDICT_HINT[submit.verdict] && <p>{VERDICT_HINT[submit.verdict]}</p>}
               <p className="text-ide-ink-3">
-                The tests themselves stay hidden, try the same shape of input
+                A hidden test&apos;s input stays hidden, try the same shape of input
                 yourself under <span className="text-ide-ink-2">Custom input</span>.
               </p>
             </>
           )}
         </div>
+
+        <SubmitTests tests={submit.tests} />
       </div>
     );
   }
@@ -742,6 +801,34 @@ function Results({
           ))}
           {custom && <TestRow test={custom} title="Custom input" />}
         </div>
+
+        {/* "2 of 2 samples passed" is the moment this reads as finished, and it
+            is also the moment the hidden tests have not run yet. They are shown
+            as the rows they will become, unrun, rather than described. */}
+        {hiddenCount > 0 && (
+          <div className="mt-6">
+            <h3 className="font-ide-display text-base font-semibold text-ide-ink">
+              Waiting for Submit
+            </h3>
+            <dl className="mt-2 divide-y divide-ide-hairline border-y border-ide-hairline">
+              {Array.from({ length: hiddenCount }, (_, index) => (
+                <div key={index} className="flex items-center gap-3 py-2.5 text-sm">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ide-panel-2">
+                    <ClockIcon className="h-3 w-3 text-ide-ink-3" />
+                  </span>
+                  <dt className="tnum font-medium text-ide-ink-3">
+                    Hidden test {index + 1}
+                  </dt>
+                  <dd className="text-ide-ink-3">Not run yet</dd>
+                  <span className="ml-auto flex shrink-0 items-center gap-1.5 text-xs text-ide-ink-3">
+                    <LockIcon className="h-3.5 w-3.5" />
+                    Hidden
+                  </span>
+                </div>
+              ))}
+            </dl>
+          </div>
+        )}
       </div>
     );
   }
@@ -752,8 +839,60 @@ function Results({
       <p className="max-w-md text-sm leading-relaxed text-ide-ink-3">
         <span className="text-ide-ink-2">Run</span> tries your code on the
         examples you can see. <span className="text-ide-ink-2">Submit</span> checks
-        it against every test and records a score.
+        it against every test
+        {hiddenCount > 0 && (
+          <>
+            , including <span className="tnum text-ide-ink-2">{hiddenCount}</span> you
+            cannot see
+          </>
+        )}
+        , and records a score.
       </p>
+    </div>
+  );
+}
+
+/**
+ * Every test Submit ran, named and marked, the way the platforms participants
+ * graduate to list theirs.
+ *
+ * A hidden row carries exactly what a participant is allowed to know: which
+ * test it was, whether it passed, and what kind of failure it was. In place of
+ * the cells a sample would show, it carries a lock and says so, because a row
+ * that simply omitted them would read as a rendering bug.
+ */
+function SubmitTests({ tests }: { tests: SubmitTest[] }) {
+  if (tests.length === 0) return null;
+  return (
+    <div className="settle-2 mt-6">
+      <h3 className="font-ide-display text-base font-semibold text-ide-ink">Test cases</h3>
+      <dl className="mt-2 divide-y divide-ide-hairline border-y border-ide-hairline">
+        {tests.map((test) => {
+          const tone: Tone = test.passed ? "pass" : VERDICT_TONE[test.verdict] ?? "fail";
+          const Icon = ICON[tone];
+          return (
+            <div key={test.index} className="flex items-center gap-3 py-2.5 text-sm">
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${TONE[tone].quiet}`}>
+                <Icon className="h-3 w-3" />
+              </span>
+              <dt className="tnum font-medium text-ide-ink">Test {test.index + 1}</dt>
+              <dd className={`${TONE[tone].text} font-medium`}>
+                {test.passed ? "Passed" : verdictText(test.verdict)}
+              </dd>
+              <span className="ml-auto flex shrink-0 items-center gap-1.5 text-xs text-ide-ink-3">
+                {test.isSample ? (
+                  "Sample"
+                ) : (
+                  <>
+                    <LockIcon className="h-3.5 w-3.5" />
+                    Hidden
+                  </>
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </dl>
     </div>
   );
 }

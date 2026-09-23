@@ -87,8 +87,9 @@ export async function POST(request: Request) {
     await upsertScore({ userId, problemId: problem.id, score });
   }
 
-  // Only the failing test's index is reported, never its input or expected
-  // output, which would leak hidden test data.
+  // A test's index, whether it passed, what kind of failure it was, and whether
+  // it was one of the shown samples. Never its input, its expected output or
+  // the participant's actual output, any of which would leak a hidden test.
   return ok({
     verdict: result.verdict,
     passedCount: result.passedCount,
@@ -96,5 +97,11 @@ export async function POST(request: Request) {
     runtimeMs: result.runtimeMs,
     failedAt: firstFailure ? firstFailure.index + 1 : null,
     score,
+    tests: result.outcomes.map((outcome) => ({
+      index: outcome.index,
+      passed: outcome.passed,
+      verdict: outcome.verdict,
+      isSample: tests[outcome.index]?.isSample ?? false,
+    })),
   });
 }

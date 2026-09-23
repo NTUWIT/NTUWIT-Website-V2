@@ -7,6 +7,7 @@ import { execute, type ExecResult } from "./piston";
 import { wrapSource } from "./harness";
 import { MAX_OUTPUT_BYTES, MAX_STDIN_BYTES } from "./limits";
 import { matchOptions, outputMatches, type MatchOptions } from "./normalise";
+import { parseJson } from "@/lib/problems/validate";
 
 export type Verdict =
   | "accepted"
@@ -130,14 +131,6 @@ async function runChecker(checker: string, cases: CheckCase[]): Promise<boolean[
   await flush();
   return verdicts;
 }
-
-const parseJson = (text: string): { ok: true; value: unknown } | { ok: false } => {
-  try {
-    return { ok: true, value: JSON.parse(text) };
-  } catch {
-    return { ok: false };
-  }
-};
 
 /**
  * Runs every test so `passedCount` is a true count, partial credit needs it.

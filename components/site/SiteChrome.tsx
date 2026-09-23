@@ -17,7 +17,7 @@ const NAV = [
   { to: "/about", label: "About" },
   { to: "/events", label: "Events" },
   { to: "/beyond-binary", label: "Beyond Binary" },
-  { to: "/recruit", label: "Recruitment" },
+  { to: "/coding-nights", label: "Coding Nights" },
   { to: "/ide", label: "WIT IDE" },
 ];
 
@@ -101,9 +101,9 @@ export function SiteHeader() {
               <NavLink
                 key={n.to}
                 href={n.to}
-                active="text-ink bg-blush"
+                active="text-ink site-nav-active"
                 idle="text-ink-soft hover:text-ink"
-                className="mono-eyebrow px-3 py-2 rounded-full transition-colors"
+                className="site-nav-link px-3 py-2 transition-colors"
               >
                 {n.label}
               </NavLink>
@@ -113,8 +113,8 @@ export function SiteHeader() {
           <div className="hidden lg:flex items-center gap-2">
             <SiteAccount />
             <Link
-              href="/recruit#recruitment-form"
-              className="inline-flex items-center gap-1.5 rounded-full bg-ink text-background px-4 py-2 text-[11px] font-semibold uppercase hover:bg-primary-deep hover:text-ink transition-colors"
+              href="/membership#membership-form"
+              className="inline-flex items-center gap-1.5 rounded-full bg-ink text-background px-4 py-2 text-[11px] font-semibold uppercase hover:bg-primary-deep transition-colors"
             >
               Join WIT <ArrowUpRight size={14} />
             </Link>
@@ -161,9 +161,9 @@ export function SiteHeader() {
                     </NavLink>
                   ))}
                   <Link
-                    href="/recruit#recruitment-form"
+                    href="/membership#membership-form"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="mt-1 px-3 py-2.5 text-sm font-semibold rounded-lg bg-ink text-background text-center transition-colors hover:bg-primary-deep hover:text-ink"
+                    className="mt-1 px-3 py-2.5 text-sm font-semibold rounded-lg bg-ink text-background text-center transition-colors hover:bg-primary-deep"
                   >
                     Join WIT
                   </Link>

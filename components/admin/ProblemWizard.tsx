@@ -102,12 +102,19 @@ export type ExistingProblem = {
   attempts: number;
 };
 
-export function ProblemWizard({ existing }: { existing?: ExistingProblem }) {
+export function ProblemWizard({
+  existing,
+  sets = [],
+}: {
+  existing?: ExistingProblem;
+  sets?: { id: string; name: string }[];
+}) {
   const editing = existing !== undefined;
   const router = useRouter();
   const [step, setStep] = useState<Step>("Details");
   const [result, setResult] = useState<ActionResult | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [setId, setSetId] = useState<string | null>(existing?.setId ?? null);
   const [pending, startTransition] = useTransition();
 
   const [title, setTitle] = useState(existing?.title ?? "");
@@ -298,26 +305,29 @@ export function ProblemWizard({ existing }: { existing?: ExistingProblem }) {
 
   const submit = () =>
     startTransition(async () => {
-      setResult(
-        await saveProblem({
-          ...(existing ? { id: existing.id } : {}),
-          setId: existing?.setId ?? null,
-          title: title.trim(),
-          slug: effectiveSlug,
-          difficulty,
-          points,
-          timeLimitMs,
-          memoryLimitKb: 131072,
-          order,
-          statementMd,
-          signature,
-          tests: tests.map((test) => ({
-            stdin: test.stdin.trim(),
-            expectedStdout: test.expectedStdout.trim(),
-            isSample: test.isSample,
-          })),
-        }),
-      );
+      const outcome = await saveProblem({
+        ...(existing ? { id: existing.id } : {}),
+        setId,
+        title: title.trim(),
+        slug: effectiveSlug,
+        difficulty,
+        points,
+        timeLimitMs,
+        memoryLimitKb: 131072,
+        order,
+        statementMd,
+        signature,
+        tests: tests.map((test) => ({
+          stdin: test.stdin.trim(),
+          expectedStdout: test.expectedStdout.trim(),
+          isSample: test.isSample,
+        })),
+      });
+      setResult(outcome);
+      // A save is the end of this screen's job. Staying here with a success
+      // message reads as "nothing happened", and the console is where the
+      // problem is opened to participants.
+      if (outcome.ok) router.push("/admin");
     });
 
   return (
@@ -414,6 +424,28 @@ export function ProblemWizard({ existing }: { existing?: ExistingProblem }) {
                 />
               </Field>
             </div>
+
+            <Field
+              label="Problem set"
+              hint={
+                sets.length === 0
+                  ? "No sets exist yet. Create one on the console, then come back and assign this problem."
+                  : "Participants see a problem only when the set holding it is opened."
+              }
+            >
+              <select
+                value={setId ?? ""}
+                onChange={(event) => setSetId(event.target.value || null)}
+                className={inputClass}
+              >
+                <option value="">No set yet</option>
+                {sets.map((set) => (
+                  <option key={set.id} value={set.id}>
+                    {set.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
 
             <Field
               label="Time limit"

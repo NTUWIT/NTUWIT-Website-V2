@@ -2,7 +2,10 @@
 
 import { useCallback, useRef, useState } from "react";
 
-import { TabButton } from "./primitives";
+import { ResizeHandle } from "./resize-handle";
+
+/** Neither pane may be squeezed to uselessness. */
+const clamp = (percent: number) => Math.min(65, Math.max(25, percent));
 
 /**
  * Two panes side by side on a laptop, one at a time below it.
@@ -17,49 +20,45 @@ import { TabButton } from "./primitives";
  */
 type Pane = "problem" | "code";
 
-export function Split({
-  left,
-  right,
-  leftLabel = "Problem",
-  rightLabel = "Code",
-  initial = 42,
-}: {
-  left: React.ReactNode;
-  right: React.ReactNode;
-  leftLabel?: string;
-  rightLabel?: string;
-  initial?: number;
-}) {
-  const [percent, setPercent] = useState(initial);
+export function Split({ left, right }: { left: React.ReactNode; right: React.ReactNode }) {
+  const [percent, setPercent] = useState(42);
   const [pane, setPane] = useState<Pane>("code");
   const frame = useRef<HTMLDivElement>(null);
 
-  const onPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }, []);
-
-  const onPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+  const onDrag = useCallback((clientX: number) => {
     const box = frame.current?.getBoundingClientRect();
     if (!box) return;
-    const next = ((event.clientX - box.left) / box.width) * 100;
-    // Neither pane may be squeezed to uselessness.
-    setPercent(Math.min(65, Math.max(25, next)));
+    setPercent(clamp(((clientX - box.left) / box.width) * 100));
   }, []);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="@container flex min-h-0 flex-1 flex-col">
       {/* The tab strip exists only where the panes cannot coexist. */}
-      <div className="flex shrink-0 items-center gap-1 px-3 pb-2 lg:hidden">
-        <TabButton active={pane === "problem"} onClick={() => setPane("problem")}>
-          {leftLabel}
-        </TabButton>
-        <TabButton active={pane === "code"} onClick={() => setPane("code")}>
-          {rightLabel}
-        </TabButton>
+      <div className="flex shrink-0 items-center px-3 pb-2 @min-[900px]:hidden">
+        {/* A segmented control, not two bare tabs: on the bare ground a
+            recess-tinted active pill is nearly the ground's own colour, and the
+            pair reads as two more pieces of plain text in a row full of them. */}
+        <div role="tablist" className="inline-flex gap-0.5 rounded-control bg-ide-panel-2 p-0.5">
+          {(["problem", "code"] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={pane === value}
+              onClick={() => setPane(value)}
+              className={`rounded-focus px-3 py-1.5 text-sm capitalize transition ${
+                pane === value
+                  ? "bg-ide-panel font-medium text-ide-ink shadow-ide-panel"
+                  : "text-ide-ink-3 hover:text-ide-ink"
+              }`}
+            >
+              {value === "problem" ? "Problem" : "Code"}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div ref={frame} className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div ref={frame} className="flex min-h-0 flex-1 flex-col @min-[900px]:flex-row">
         {/*
          * The percentage is a width, so it is only applied once the panes sit
          * side by side. Left on the element at every width it would set the
@@ -74,24 +73,15 @@ export function Split({
           {left}
         </div>
 
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize panes"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowLeft") setPercent((p) => Math.max(25, p - 2));
-            if (event.key === "ArrowRight") setPercent((p) => Math.min(65, p + 2));
-          }}
-          tabIndex={0}
-          className="group hidden w-2 shrink-0 cursor-col-resize items-center justify-center outline-none lg:flex"
-        >
-          <span className="h-10 w-[2px] rounded-full bg-ide-panel-3 transition group-hover:bg-ide-accent group-focus-visible:bg-ide-accent" />
-        </div>
+        <ResizeHandle
+          label="Resize panes"
+          onDrag={onDrag}
+          onStep={(direction) => setPercent((p) => clamp(p + direction * 2))}
+          className="hidden @min-[900px]:flex"
+        />
 
         <div
-          className={`min-h-0 min-w-0 lg:flex lg:flex-1 lg:flex-col ${
+          className={`min-h-0 min-w-0 @min-[900px]:flex @min-[900px]:flex-1 @min-[900px]:flex-col ${
             pane === "code" ? "flex flex-1 flex-col" : "hidden"
           }`}
         >

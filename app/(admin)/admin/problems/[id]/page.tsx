@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { ProblemWizard } from "@/components/admin/ProblemWizard";
 import { ChevronIcon } from "@/components/ide/icons";
-import { countSubmissions, getProblemForEdit } from "@/lib/db/queries";
+import { countSubmissions, getProblemForEdit, listSets } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +18,7 @@ export default async function EditProblemPage({
 
   const { problem, tests } = found;
   const attempts = await countSubmissions(id);
+  const sets = await listSets();
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
@@ -39,6 +40,7 @@ export default async function EditProblemPage({
       </p>
 
       <ProblemWizard
+        sets={sets.map(({ id: setId, name }) => ({ id: setId, name }))}
         existing={{
           id: problem.id,
           setId: problem.setId,

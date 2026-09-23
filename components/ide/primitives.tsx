@@ -70,24 +70,41 @@ export function TabButton({
   );
 }
 
-/** The editor's Submit, reused wherever an action is the point of the screen. */
+/**
+ * The editor's Submit, reused wherever an action is the point of the screen.
+ * `armed` is the second beat of Submit's two-press confirmation; it is a prop
+ * rather than a className override because two background utilities of equal
+ * specificity resolve by stylesheet order, not by the order they are written.
+ */
 export function PrimaryButton({
   children,
   className = "",
+  armed = false,
   ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { armed?: boolean }) {
   return (
     <button
       type="button"
       {...rest}
-      className={`flex items-center justify-center gap-2 rounded-control bg-ide-accent px-5 py-2.5 text-sm font-semibold text-ide-on-accent transition hover:brightness-105 disabled:opacity-40 ${className}`}
+      className={`flex items-center justify-center gap-2 rounded-control px-4 py-2.5 text-sm font-semibold transition disabled:opacity-55 ${
+        armed ? "bg-ide-warn-quiet text-ide-warn" : "bg-ide-accent text-ide-on-accent hover:brightness-105"
+      } ${className}`}
     >
       {children}
     </button>
   );
 }
 
-/** The editor's Run: a flat panel that drops its shadow when disabled. */
+/**
+ * The editor's Run.
+ *
+ * Deep recess rather than panel white: this control sits on the bare ground
+ * beside the frameless editor, where panel white is a 2% step off the ground
+ * and the one Panel shadow — tuned for an object the size of a panel — is
+ * invisible at button scale. On the bench the button read as another line of
+ * text above the code. Tone separates it, which is how everything else in this
+ * system separates.
+ */
 export function SecondaryButton({
   children,
   className = "",
@@ -97,7 +114,7 @@ export function SecondaryButton({
     <button
       type="button"
       {...rest}
-      className={`flex items-center justify-center gap-2 rounded-control bg-ide-panel px-4 py-2.5 text-sm font-medium text-ide-ink shadow-ide-panel transition hover:bg-ide-panel-2 disabled:opacity-40 disabled:shadow-none ${className}`}
+      className={`flex items-center justify-center gap-2 rounded-control bg-ide-panel-3 px-4 py-2.5 text-sm font-medium text-ide-ink transition hover:bg-ide-hairline disabled:opacity-55 ${className}`}
     >
       {children}
     </button>

@@ -17,10 +17,6 @@
   --ink-soft: 0 0% 24%;
   
   --card: 0 0% 100%;
-  --card-foreground: 0 0% 6%;
-  
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 6%;
   
   /* Coral pink from WIT logo - refined */
   --primary: 8 72% 68%;
@@ -41,24 +37,12 @@
   --accent: 22 85% 52%;
   --accent-foreground: 0 0% 100%;
   
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 100%;
-  
   --border: 0 0% 91%;
   --hairline: 0 0% 88%;
   --input: 0 0% 91%;
   --ring: 22 100% 50%;
   
   --radius: 0.75rem;
-  
-  --sidebar-background: 0 0% 98%;
-  --sidebar-foreground: 0 0% 26%;
-  --sidebar-primary: 0 0% 10%;
-  --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent: 0 0% 96%;
-  --sidebar-accent-foreground: 0 0% 10%;
-  --sidebar-border: 0 0% 91%;
-  --sidebar-ring: 22 100% 50%;
   
   --gradient-blush: linear-gradient(135deg, hsl(12 60% 97%), hsl(8 68% 90%));
   --gradient-coral: linear-gradient(135deg, hsl(8 72% 68%), hsl(22 80% 58%));
@@ -91,12 +75,7 @@
   --color-muted-foreground: hsl(var(--muted-foreground));
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
 
   --shadow-soft: var(--wit-shadow-soft);
   --shadow-pop: var(--wit-shadow-pop);
@@ -155,18 +134,6 @@
 @utility container-wit {
     margin-inline: auto; width: 100%; max-width: 80rem; padding-inline: 1.5rem;
   }
-@utility hairline-y {
-  & > * + * {
-    border-top: 1px solid hsl(var(--hairline));
-  }
-}
-@utility hairline-x {
-  & > * + * {
-    border-left: 1px solid hsl(var(--hairline));
-  }
-}
-
-
 @utility bg-blush {
     background-color: hsl(var(--blush));
   }
@@ -196,51 +163,6 @@
       transform: translateX(-50%);
     }
   }
-@utility float-slow {
-    animation: float 6s ease-in-out infinite;
-  }
-  @keyframes float {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-8px);
-    }
-  }
-@utility fade-up {
-    animation: fadeUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  }
-  @keyframes fadeUp {
-    from {
-      opacity: 0;
-      transform: translateY(16px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  /* Subtle dotted blush background for section ambience */
-@utility bg-dotgrid {
-    background-color: hsl(var(--background));
-    background-image: radial-gradient(
-      hsl(var(--primary) / 0.18) 1px,
-      transparent 1px
-    );
-    background-size: 22px 22px;
-  }
-@utility bg-blush-wash {
-    background:
-      radial-gradient(60% 50% at 80% 0%, hsl(var(--blush)) 0%, transparent 60%),
-      radial-gradient(
-        50% 50% at 0% 100%,
-        hsl(var(--blush-strong) / 0.6) 0%,
-        transparent 60%
-      ),
-      hsl(var(--background));
-  }
-
 @media (max-width: 640px) {
   .wit-site {
     font-size: 15px;
@@ -271,17 +193,150 @@
     overflow-x: auto;
   }
 
-  /* Currently unused, covered so it cannot reintroduce motion if adopted. */
-  .wit-site .float-slow {
-    animation: none;
-  }
-
-  .wit-site .fade-up {
-    animation: none;
-  }
-
   /* Decorative "live" dots. A static dot says the same thing. */
   .wit-site .animate-pulse {
     animation: none;
   }
 }
+
+/* A soft echo of the event palette, using the main site's type and controls. */
+.wit-site .coding-nights-campaign {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: hsl(var(--ink));
+  background: radial-gradient(ellipse at 100% 0%, #f6d3c880, transparent 65%), radial-gradient(ellipse at 0% 100%, #f9d8ce90, transparent 65%), #fff8f7;
+}
+.wit-site .cn-feature { border: 1px solid hsl(var(--hairline)); border-radius: 24px; }
+.wit-site .cn-title { font-family: var(--font-fraunces), serif; font-weight: 500; line-height: 1.04; letter-spacing: -0.04em; }
+.wit-site .cn-eyebrow { font-size: 11px; line-height: 1.6; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+.wit-site .cn-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid hsl(var(--ink)); border-radius: 999px; background: hsl(var(--ink)); color: #fff; padding: 13px 18px; font-size: 13px; font-weight: 600; transition: background-color 150ms; }
+.wit-site .cn-button:hover { background: hsl(var(--primary-deep)); }
+.wit-site .cn-button-secondary { background: transparent; color: hsl(var(--ink)); }
+.wit-site .cn-button-secondary:hover { background: hsl(var(--blush)); }
+.wit-site .cn-button:focus-visible { outline: 3px solid hsl(var(--primary-deep)); outline-offset: 5px; }
+.wit-site .cn-dot { display: inline-block; width: 9px; height: 9px; flex-shrink: 0; border-radius: 50%; background: hsl(var(--primary-deep)); }
+.wit-site .cn-timeline { border-left: 1px solid hsl(var(--hairline)); margin-left: 4px; }
+.wit-site .cn-timeline .cn-dot { margin-left: -5px; }
+
+/* Public-site refinements: deliberately scoped away from the IDE. */
+.wit-site {
+  --background: 30 33% 99%;
+  --ink: 15 12% 12%;
+  --foreground: 15 12% 12%;
+  --ink-soft: 15 6% 36%;
+  --hairline: 20 16% 86%;
+}
+.wit-site .display { letter-spacing: -0.035em; text-wrap: balance; }
+.wit-site .mono-eyebrow { letter-spacing: 0.07em; }
+.wit-site .site-page-hero { background: linear-gradient(120deg, hsl(var(--blush) / 0.6), transparent 70%); }
+.wit-site .site-event-list { border-top: 1px solid hsl(var(--hairline)); }
+.wit-site .site-event-row { padding: 2.25rem 0; border-bottom: 1px solid hsl(var(--hairline)); }
+.wit-site a:focus-visible { outline: 2px solid hsl(var(--primary-deep)); outline-offset: 5px; }
+@media (min-width: 768px) {
+  .wit-site .container-wit { padding-inline: 3rem; }
+  .wit-site .site-event-row { padding: 2.75rem 0; }
+}
+
+/* Shared visual rhythm for the public pages. */
+.wit-site .site-home-title { font-size: clamp(2.8rem, 6.5vw, 6.25rem); line-height: 1.02; max-width: 17ch; }
+.wit-site .site-home-hero { background: radial-gradient(ellipse at 90% 30%, hsl(var(--blush-strong) / 0.45), transparent 60%); }
+.wit-site .site-nav-link { position: relative; font-size: 12px; font-weight: 500; }
+.wit-site .site-nav-link::after { content: ""; position: absolute; bottom: 2px; left: 12px; right: 12px; height: 2px; background: hsl(var(--primary-deep)); transform: scaleX(0); transform-origin: left; transition: transform 180ms ease; }
+.wit-site .site-nav-link:hover::after, .wit-site .site-nav-active::after { transform: scaleX(1); }
+.wit-site .site-event-marker { display: inline-block; width: 7px; height: 7px; margin-right: 10px; border-radius: 50%; background: hsl(var(--primary-deep)); vertical-align: middle; }
+.wit-site .site-programme-link { padding-left: 3rem; }
+.wit-site .site-programme-number { position: absolute; left: 0; top: 2rem; font-size: 11px; color: hsl(var(--primary-deep)); }
+.wit-site .site-statistics dd { font-variant-numeric: lining-nums; }
+.wit-site footer { border-top: 1px solid hsl(var(--hairline)); background: hsl(var(--blush)); }
+.wit-site .cn-title { letter-spacing: -0.045em; }
+@media (min-width: 768px) {
+  .wit-site .site-event-row { display: grid; grid-template-columns: minmax(180px, 0.75fr) minmax(0, 1.25fr); column-gap: 4rem; }
+  .wit-site .site-event-meta { grid-column: 1; grid-row: 1 / span 3; flex-direction: column; justify-content: flex-start; gap: 1.25rem; }
+  .wit-site .site-event-row > h3, .wit-site .site-event-row > p { grid-column: 2; }
+  .wit-site .site-statistics > div + div { border-left: 1px solid hsl(var(--hairline)); padding-left: 1.5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wit-site .site-nav-link::after { transition: none; }
+}
+
+/* Object-led landing page. Colours stay within the WIT identity. */
+.wit-site .site-home-hero { background: radial-gradient(ellipse at 50% 100%, #faeee7 0%, #fffdfb 65%); }
+.wit-site .site-hero-composition { position: relative; min-height: 680px; padding-top: 6rem; padding-bottom: 14rem; text-align: center; }
+.wit-site .site-hero-copy { position: relative; z-index: 2; max-width: 800px; margin-inline: auto; pointer-events: none; }
+.wit-site .site-hero-copy a { pointer-events: auto; }
+.wit-site .site-home-title { font-family: var(--font-gabarito), var(--font-inter), sans-serif; font-weight: 500; font-size: clamp(2.8rem, 5.3vw, 4.8rem); line-height: 1.05; max-width: none; letter-spacing: -.055em; }
+.wit-site .site-home-title .italic { font-family: var(--font-fraunces), serif; font-weight: 500; color: #b45443; }
+.wit-site .site-hero-copy > p:last-of-type { max-width: 32rem; margin-inline: auto; font-size: 15px; }
+.wit-site .site-hero-copy > div { justify-content: center; }
+.wit-site .site-hero-baseline { position: relative; display: flex; justify-content: space-between; gap: 1rem; padding-block: 1.25rem; border-top: 1px solid hsl(var(--hairline)); font-size: 11px; text-transform: uppercase; letter-spacing: .07em; }
+.wit-site .site-hero-baseline a { display: flex; gap: 2rem; }
+.wit-site .wit-playground { position: absolute; inset: 0; perspective: 1100px; --scene-x: 0deg; --scene-y: 0deg; }
+.wit-site .wit-scene-object { position: absolute; transform: rotateX(var(--scene-y)) rotateY(var(--scene-x)); transition: transform 450ms ease-out; }
+.wit-site .wit-scene-object svg { width: 100%; height: auto; filter: drop-shadow(0 24px 18px #7b42301a); }
+.wit-site .wit-code-object { width: 220px; left: 1.5rem; bottom: 2rem; transform: rotate(-12deg) rotateX(var(--scene-y)) rotateY(var(--scene-x)); }
+.wit-site .wit-laptop-object { width: 290px; right: 1rem; bottom: 1.5rem; transform: rotate(-10deg) rotateX(var(--scene-y)) rotateY(var(--scene-x)); }
+.wit-site .wit-spark-object { width: 70px; right: 8%; top: 3rem; transform: rotate(12deg) rotateX(var(--scene-y)) rotateY(var(--scene-x)); }
+.wit-site .wit-object-caption { display: block; color: #76584f; font-family: var(--font-geist-mono), monospace; font-size: 9px; letter-spacing: .02em; }
+.wit-site .cn-feature-stage { background: #faf8f5; color: #30231f; position: relative; overflow: hidden; border-block: 1px solid hsl(var(--hairline)); }
+.wit-site .cn-feature-stage .cn-title { font-family: var(--font-gabarito), var(--font-inter), sans-serif; font-weight: 500; line-height: .95; letter-spacing: -.06em; }
+.wit-site .cn-feature-title-second { display: block; color: #9a4435; padding-left: 2.5rem; }
+.wit-site .cn-feature-title-second > span { font-weight: 400; display: inline-block; padding-left: 1rem; color: #9a4435; }
+.wit-site .cn-feature-stage .text-ink-soft { color: #604a43; }
+.wit-site .cn-feature-stage .cn-button { background: #30231f; color: #fff7f2; border-color: #30231f; border-radius: 999px; }
+.wit-site .cn-feature-stage .cn-button:hover { background: #914232; border-color: #914232; }
+.wit-site .cn-feature-stage a:focus-visible { outline-color: #914232; }
+.wit-site .cn-feature-stage .site-event-marker { background: #914232; }
+.wit-site .cn-feature-night { display: grid; grid-template-columns: 5.5rem 1fr; gap: 1.75rem; padding-block: 2rem; border-top: 1px solid #b8837160; }
+.wit-site .cn-feature-night:last-child { border-bottom: 1px solid #b8837160; }
+.wit-site .cn-feature-date { font-family: var(--font-gabarito), var(--font-inter), sans-serif; font-size: 5.5rem; line-height: .9; color: #9a4435; letter-spacing: -.06em; }
+.wit-site .cn-feature-date span { display: block; font-family: var(--font-inter), sans-serif; font-size: 11px; letter-spacing: .15em; margin-top: 1rem; }
+.wit-site .cn-feature-night h3 { font-family: var(--font-inter), sans-serif; font-size: 20px; line-height: 1.25; letter-spacing: -.035em; }
+.wit-site .site-explore { padding-block: 5rem; }
+.wit-site .site-programme-link { isolation: isolate; padding-block: 2rem; }
+.wit-site .site-programme-link::before { content: ""; position: absolute; inset: 0 -1rem; z-index: -1; background: #fae8df; transform: scaleY(0); transform-origin: bottom; transition: transform 220ms ease; }
+.wit-site .site-programme-link:hover::before, .wit-site .site-programme-link:focus-visible::before { transform: scaleY(1); }
+.wit-site .site-programme-link:hover .site-programme-arrow { transform: rotate(45deg); }
+.wit-site .site-programme-link > .font-display { font-family: var(--font-gabarito), var(--font-inter), sans-serif; font-size: clamp(1.5rem, 3vw, 2.5rem); font-weight: 500; letter-spacing: -.04em; }
+@media (max-width: 1023px) {
+  .wit-site .site-hero-composition { min-height: 700px; padding-top: 4rem; padding-bottom: 17rem; }
+  .wit-site .wit-code-object { width: 190px; }
+  .wit-site .wit-laptop-object { width: 240px; }
+  .wit-site .wit-spark-object { width: 45px; top: 1.25rem; }
+}
+@media (max-width: 639px) {
+  .wit-site .site-hero-composition { min-height: 0; padding-top: 3rem; padding-bottom: 14rem; }
+  .wit-site .site-home-title { font-size: clamp(2.45rem, 8vw, 3.3rem); }
+  .wit-site .site-hero-copy > p:last-of-type { font-size: 14px; }
+  .wit-site .site-hero-copy > .mono-eyebrow { font-size: 9px; }
+  .wit-site .wit-code-object { width: 135px; left: .75rem; bottom: 1rem; }
+  .wit-site .wit-laptop-object { width: 190px; right: .5rem; bottom: 0; }
+  .wit-site .wit-spark-object { width: 30px; right: 1rem; top: 1rem; }
+  .wit-site .wit-object-caption { font-size: 7px; }
+  .wit-site .site-hero-baseline { font-size: 9px; }
+  .wit-site .cn-feature-night { grid-template-columns: 4rem 1fr; gap: 1.5rem; }
+  .wit-site .cn-feature-date { font-size: 4rem; }
+  .wit-site .site-explore { padding-block: 3.5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wit-site .wit-scene-object, .wit-site .site-programme-link::before, .wit-site .site-programme-arrow { transition: none; }
+}
+
+.wit-site .wit-bead-scene { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.wit-site .cn-feature-title-second, .wit-site .cn-feature-title-second > span, .wit-site .cn-feature-date { color: hsl(var(--primary-deep)); }
+.wit-site .coding-nights-campaign { background: linear-gradient(145deg, #faf8f5, #fffdfb); }
+.wit-site .cn-feature-night { border-color: hsl(var(--hairline)); }
+.wit-site .cn-feature-night:last-child { border-color: hsl(var(--hairline)); }
+
+.wit-site .cn-feature-stage, .wit-site .coding-nights-campaign { background: radial-gradient(ellipse at 95% 5%, #dfe0ed 0%, transparent 55%), radial-gradient(ellipse at 5% 100%, #f4c8b9 0%, transparent 60%), linear-gradient(120deg, #fff9f3, #f9ece9); }
+.wit-site .cn-feature-schedule { border-left: 1px solid #b99a8d55; padding-left: 2.5rem; }
+.wit-site .cn-feature-night:first-child { border-top: 0; padding-top: .5rem; }
+.wit-site .cn-feature-night:last-child { border-bottom: 0; padding-bottom: .5rem; }
+.wit-site .cn-feature-title-second { font-family: var(--font-fraunces), serif; font-style: italic; font-weight: 400; }
+.wit-site .cn-feature-stage .cn-button { box-shadow: 0 5px 18px #8f58451a; }
+@media(max-width: 639px) {
+  .wit-site .cn-feature-schedule { padding-left: 0; border-left: 0; }
+}
+
+.wit-site .site-main-mesh { opacity: .65; }
+.wit-site .site-main-mesh::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 35%, #fffdfbe6, transparent 70%); }

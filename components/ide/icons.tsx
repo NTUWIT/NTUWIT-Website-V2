@@ -111,6 +111,14 @@ export const ChevronIcon = (props: IconProps) => (
   </Svg>
 );
 
+/** A hidden test: shown in place of the cells a sample would have. */
+export const LockIcon = (props: IconProps) => (
+  <Svg {...props}>
+    <rect x="4.5" y="10.5" width="15" height="9.5" rx="2.25" />
+    <path d="M8 10.5V7.75a4 4 0 0 1 8 0v2.75" />
+  </Svg>
+);
+
 export const BeakerIcon = (props: IconProps) => (
   <Svg {...props}>
     <path d="M9.5 3.5v6L4.8 17a2.5 2.5 0 0 0 2.1 3.8h10.2a2.5 2.5 0 0 0 2.1-3.8L14.5 9.5v-6" />

@@ -24,20 +24,27 @@
  *
  * Do not point this at the judge while a real event is running.
  */
+import { parseArgs } from "node:util";
+import { setTimeout as sleep } from "node:timers/promises";
+
 import { runTests, type RunResult } from "@/lib/judge/runner";
 import type { Language } from "@/lib/languages";
 import { CASES } from "./check-types";
 
-const arg = (name: string, fallback: number) => {
-  const i = process.argv.indexOf(`--${name}`);
-  return i > 0 ? Number(process.argv[i + 1]) : fallback;
-};
-const has = (name: string) => process.argv.includes(`--${name}`);
+const { values } = parseArgs({
+  options: {
+    students: { type: "string", default: "70" },
+    minutes: { type: "string", default: "3" },
+    think: { type: "string", default: "30" },
+    burst: { type: "boolean", default: false },
+    mix: { type: "string", default: "default" },
+  },
+});
 
-const STUDENTS = arg("students", 70);
-const MINUTES = arg("minutes", 3);
-const THINK_S = arg("think", 30);
-const BURST = has("burst");
+const STUDENTS = Number(values.students);
+const MINUTES = Number(values.minutes);
+const THINK_S = Number(values.think);
+const BURST = values.burst;
 
 /** Share of students per language. The default guesses a student-society room. */
 const MIXES: Record<string, [Language, number][]> = {
@@ -45,9 +52,8 @@ const MIXES: Record<string, [Language, number][]> = {
   java: [["java", 1]],
   python: [["python", 1]],
 };
-const mixName = process.argv[process.argv.indexOf("--mix") + 1] ?? "default";
-const MIX = MIXES[has("mix") ? mixName : "default"];
-if (!MIX) throw new Error(`unknown mix "${mixName}", use one of: ${Object.keys(MIXES).join(", ")}`);
+const MIX = MIXES[values.mix];
+if (!MIX) throw new Error(`unknown mix "${values.mix}", use one of: ${Object.keys(MIXES).join(", ")}`);
 
 /** Vercel's function ceilings for the two routes (maxDuration in each route file). */
 const CEILING_MS = { run: 30_000, submit: 60_000 };
@@ -57,7 +63,6 @@ type Sample = { action: Action; language: Language; ms: number; outcome: string 
 
 const samples: Sample[] = [];
 const pick = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)]!;
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function languageFor(student: number): Language {
   // Deterministic per student, so the room keeps its mix for the whole test.

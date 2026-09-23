@@ -22,18 +22,23 @@ const STATS = [
 ];
 
 const PILLARS = [
-  {
-    t: "Internal Governance",
-    d: "Transparent operations, proper election procedures, full PDPA compliance and risk management across leadership.",
-  },
-  {
-    t: "Mentorship — WoMENTORS",
-    d: "Structured year-long pairing with industry mentors and senior alumni for career support.",
-  },
-  {
-    t: "Advisor & Faculty Support",
-    d: "Guided by Club Advisor Prof. Li Fang with formal NTU SAO endorsement for continued growth.",
-  },
+  { t: "Learn by doing", d: "Build practical skills through Coding Nights and the SheLearns workshop series, from coding fundamentals to interview preparation." },
+  { t: "Create together", d: "Explore real-world problems through data at SheBuilds, or turn an idea into a solution at the Beyond Binary hackathon and ideathon." },
+  { t: "Grow with guidance", d: "woMENTORS connects students with experienced women in technology for three months of one-to-one mentorship and career conversations." },
+];
+
+const COMMITTEE = [
+  { role: "President", name: "Rishika" },
+  { role: "Vice President (External)", name: "Khanak" },
+  { role: "Vice President (Internal)", name: "Divisha" },
+  { role: "Vice President (Academics)", name: "Saba" },
+  { role: "Treasurer", name: "Kashvi" },
+  { role: "Honorary General Secretary", name: "Gwen" },
+  { role: "Events Director (Corporate)", name: "Khushi" },
+  { role: "Events Director (Community)", name: "Tricia" },
+  { role: "Business Management Director", name: "Maanya & Nikitha" },
+  { role: "Marketing Director", name: "Devanshi" },
+  { role: "Logistics Director", name: "Sushmitha" },
 ];
 
 export default function About() {
@@ -48,20 +53,16 @@ export default function About() {
             looks like at NTU.
           </>
         }
-        description="NTU Women in Tech is a non-constituent student club uniting students across SCSE, EEE, NBS and beyond. We organise hackathons, industry nights, mentorship and learning experiences that have grown participation significantly in two years."
+        description="NTU Women in Tech is a student-led community empowering women in STEM through learning, mentorship and industry engagement. Across disciplines and experience levels, we create opportunities to build skills, meet people and explore a future in technology."
       />
 
       {/* Stats Grid */}
       <section className="container-wit py-12 md:py-16">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {STATS.map((s, i) => (
+          {STATS.map((s) => (
             <div
               key={s.l}
-              className={`p-4 md:p-5 rounded-lg border transition-all duration-300 ${
-                i % 3 === 0
-                  ? "bg-secondary/60 border-hairline"
-                  : "bg-card border-hairline"
-              } hover:shadow-soft`}
+              className="border-t border-hairline py-5"
             >
               <div className="font-display text-2xl md:text-3xl font-semibold text-ink">
                 {s.v}
@@ -79,21 +80,21 @@ export default function About() {
         <div className="container-wit py-12 md:py-16 grid lg:grid-cols-5 gap-8 md:gap-10">
           <div className="lg:col-span-2">
             <p className="mono-eyebrow text-ink-soft text-xs">
-              Mission & governance
+              Our community
             </p>
             <h2 className="display text-3xl md:text-4xl mt-3 font-semibold">
-              Built on integrity. Run with rigour.
+              A place to learn, build and belong.
             </h2>
             <p className="mt-4 text-sm text-ink-soft leading-relaxed">
-              Every dollar accounted for. Every event documented. Every handover
-              smooth. That&apos;s how we&apos;ve grown into a thriving community.
+              From your first workshop to your next technical interview, there is
+              room to ask questions, try something new and grow alongside others.
             </p>
           </div>
           <div className="lg:col-span-3 grid md:grid-cols-3 gap-4">
             {PILLARS.map((p) => (
               <div
                 key={p.t}
-                className="p-5 rounded-lg bg-background border border-hairline hover:shadow-soft transition-all duration-300"
+                className="border-t border-hairline py-5"
               >
                 <div className="font-display text-lg font-semibold text-ink">
                   {p.t}
@@ -104,6 +105,27 @@ export default function About() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section id="committee" className="container-wit scroll-mt-24 py-12 md:py-16" aria-labelledby="committee-title">
+        <p className="mono-eyebrow text-xs text-ink-soft">The people behind WIT</p>
+        <h2 id="committee-title" className="display mt-3 text-3xl font-semibold md:text-4xl">Meet the committee.</h2>
+        <p className="mt-3 text-sm text-ink-soft">Academic year 2026–2027</p>
+        <div className="mt-8 grid items-start gap-6 lg:grid-cols-2">
+          {[{ title: "Executive committee", members: COMMITTEE.slice(0, 6) }, { title: "Directors", members: COMMITTEE.slice(6) }].map(({ title, members }) => (
+            <div key={title} className="border-t border-ink">
+              <h3 className="border-b border-hairline py-5 text-sm font-semibold">{title}</h3>
+              <dl className="divide-y divide-black/10">
+                {members.map(({ role, name }) => (
+                  <div key={role} className="grid gap-2 py-5 sm:grid-cols-[1.3fr_1fr] sm:items-center sm:gap-5">
+                    <dt className="text-sm leading-relaxed text-ink-soft">{role}</dt>
+                    <dd className="font-display text-xl font-semibold text-ink">{name}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -136,7 +158,7 @@ export default function About() {
             See our events →
           </Link>
           <Link
-            href="/recruit"
+            href="/membership"
             className="inline-flex items-center gap-2 border border-ink rounded-full px-5 py-2.5 text-xs font-semibold hover:bg-blush transition-colors"
           >
             Join WIT

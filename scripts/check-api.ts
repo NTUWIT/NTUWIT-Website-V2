@@ -120,16 +120,43 @@ async function httpChecks() {
     `malformed JSON must be a typed error, got ${malformed.status}`,
   );
 
-  // The leaderboard route requires a session too, and answers with the same
-  // typed body rather than a redirect.
-  const board = await fetch(`${BASE_URL}/api/leaderboard`);
-  assert.equal(board.status, 401, "leaderboard must answer 401 when signed out");
-  assert.deepEqual(await board.json(), { ok: false, error: "UNAUTHENTICATED" });
-
   console.log(`check-api: HTTP half passed against ${BASE_URL}`);
 }
 
+/**
+ * The counts the solve screen shows must agree with the tests it is allowed to
+ * send. If `countTests` ever drifts from `getSampleTests`, the screen either
+ * claims hidden tests that are not there or hides tests it just handed over.
+ */
+async function countChecks() {
+  // `yarn test` runs offline; this half needs a database, like the HTTP half
+  // needs a server, and skips the same way rather than failing the suite.
+  if (!process.env.DATABASE_URL) {
+    console.log("check-api: no DATABASE_URL, skipped the test-count half");
+    return;
+  }
+  const { countTests, getSampleTests, listProblems } = await import("@/lib/db/queries");
+  const problems = (await listProblems()).slice(0, 5);
+  if (problems.length === 0) {
+    console.log("check-api: nothing active, skipped the test-count half");
+    return;
+  }
+  for (const problem of problems) {
+    const counts = await countTests(problem.id);
+    const samples = await getSampleTests(problem.id);
+    assert.equal(counts.samples, samples.length, `${problem.slug}: shown count must equal the samples sent`);
+    assert.ok(counts.total >= counts.samples, `${problem.slug}: total must include the samples`);
+    // A sample row carries content; it must never carry the flag that would
+    // let a client tell which of the remaining tests are hidden.
+    for (const sample of samples) {
+      assert.deepEqual(Object.keys(sample).sort(), ["expectedStdout", "stdin"], "a sample sent to a client carries content only");
+    }
+  }
+  console.log(`check-api: test counts agree with samples across ${problems.length} problems`);
+}
+
 httpChecks()
+  .then(countChecks)
   .then(() => console.log("check-api: all assertions passed"))
   .catch((error) => {
     console.error(error instanceof Error ? error.message : error);

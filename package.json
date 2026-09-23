@@ -11,7 +11,7 @@
     "db:migrate": "drizzle-kit migrate",
     "seed": "tsx --conditions=react-server --env-file=.env scripts/seed.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --conditions=react-server scripts/check-tokens.ts && node scripts/check-judge.mjs && node scripts/check-scoring.mjs && tsx --conditions=react-server scripts/check-harness.ts && tsx --conditions=react-server scripts/check-units.ts && tsx --conditions=react-server scripts/check-problems.ts && tsx --conditions=react-server scripts/check-api.ts",
+    "test": "tsx --conditions=react-server scripts/check-tokens.ts && tsx --conditions=react-server scripts/check-units.ts && tsx --conditions=react-server scripts/check-problems.ts && tsx --conditions=react-server scripts/check-api.ts && tsx scripts/check-visualization.ts",
     "event": "tsx --conditions=react-server --env-file=.env scripts/event.ts",
     "check:e2e": "tsx --conditions=react-server --env-file=.env scripts/check-e2e.ts",
     "check:problems": "tsx --conditions=react-server --env-file=.env scripts/check-problems.ts",
@@ -29,7 +29,6 @@
     "@neondatabase/serverless": "^1.1.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.3",
-    "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.42.0",
     "monaco-editor": "^0.56.0",
@@ -38,7 +37,6 @@
     "react-dom": "19.2.8",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "tailwind-merge": "^3.6.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {

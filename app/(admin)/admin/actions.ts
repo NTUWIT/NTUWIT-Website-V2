@@ -6,12 +6,10 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import {
   assignProblemToSet,
-  countSubmissions,
   createProblem,
   createSet,
   deleteProblem,
   deleteSet,
-  renameSet,
   setActiveSelection,
   setEventEndsAt,
   updateProblem,
@@ -76,16 +74,6 @@ export async function addSet(name: string, description: string, order: number): 
   await createSet(name.trim(), description.trim() || null, order);
   revalidatePath("/admin");
   return { ok: true, message: `Created "${name.trim()}".` };
-}
-
-export async function editSet(setId: string, name: string, description: string): Promise<ActionResult> {
-  const denied = await guard();
-  if (denied) return denied;
-  if (name.trim().length < 2) return failed("Give the set a name.");
-
-  await renameSet(setId, name.trim(), description.trim() || null);
-  revalidatePath("/admin");
-  return { ok: true, message: "Set updated." };
 }
 
 export async function removeSet(setId: string): Promise<ActionResult> {
@@ -355,12 +343,3 @@ export async function verifySolution(input: {
   }
 }
 
-/** How many attempts a problem already has, so the console can warn first. */
-export async function attemptsFor(problemId: string): Promise<number> {
-  try {
-    await requireAdmin();
-  } catch {
-    return 0;
-  }
-  return countSubmissions(problemId);
-}
