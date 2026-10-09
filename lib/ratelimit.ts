@@ -16,6 +16,10 @@ import { Redis } from "@upstash/redis";
 const LIMITS = {
   run: { limit: 10, window: "1 m" },
   submit: { limit: 5, window: "1 m" },
+  // The one IP-keyed limit, applied only when a guest joins in `none` mode. It
+  // has to admit a whole lecture hall behind one egress address, so it only
+  // stops scripted floods of leaderboard names, not a busy room.
+  guest: { limit: 30, window: "10 m" },
 } as const;
 
 export type LimitName = keyof typeof LIMITS;

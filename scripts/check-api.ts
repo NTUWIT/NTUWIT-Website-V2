@@ -120,7 +120,69 @@ async function httpChecks() {
     `malformed JSON must be a typed error, got ${malformed.status}`,
   );
 
+  await guestChecks();
+
   console.log(`check-api: HTTP half passed against ${BASE_URL}`);
+}
+
+/**
+ * The auth-mode fallback, end to end. Forged cookies and the admin boundary are
+ * checked against any server. Whether a correctly signed guest gets in depends
+ * on the server's mode, so that half runs only when EXPECT_AUTH_MODE says which
+ * mode the server is in (start it with AUTH_MODE_OVERRIDE set to the same).
+ */
+async function guestChecks() {
+  const { GUEST_COOKIE, newGuestId, signGuest } = await import("@/lib/guest-cookie");
+  const as = (cookie: string) => (path: string, init: RequestInit = {}) =>
+    fetch(`${BASE_URL}${path}`, {
+      ...init,
+      redirect: "manual",
+      headers: { ...init.headers, cookie: `${GUEST_COOKIE}=${cookie}` },
+    });
+  const postAs = (cookie: string, path: string) =>
+    as(cookie)(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(base),
+    });
+
+  // Signed with a secret the server does not hold: never a participant.
+  const forged = signGuest(newGuestId(), "x".repeat(64))!;
+  for (const path of ["/api/run", "/api/submit"]) {
+    assert.equal((await postAs(forged, path)).status, 401, `${path}: forged guest cookie must be 401`);
+    assert.equal((await postAs("garbage", path)).status, 401, `${path}: garbage guest cookie must be 401`);
+  }
+
+  const secret = process.env.GUEST_COOKIE_SECRET;
+  const expected = process.env.EXPECT_AUTH_MODE;
+  if (!secret || !expected) {
+    console.log("check-api: set GUEST_COOKIE_SECRET and EXPECT_AUTH_MODE to check signed guests");
+    return;
+  }
+  const valid = signGuest(newGuestId(), secret);
+  assert.ok(valid, "GUEST_COOKIE_SECRET must be at least 32 bytes");
+
+  // Admin never accepts a guest, in any mode, and never opens without signing in.
+  const admin = await as(valid!)("/admin");
+  assert.equal(admin.status, 404, `/admin must be 404 for a guest, got ${admin.status}`);
+  const anonymousAdmin = await fetch(`${BASE_URL}/admin`, { redirect: "manual" });
+  assert.equal(anonymousAdmin.status, 404, `/admin must be 404 when signed out, got ${anonymousAdmin.status}`);
+  const adminSignIn = await (await fetch(`${BASE_URL}/sign-in?next=/admin`)).text();
+  assert.ok(!adminSignIn.includes("wit-guest-join"), "signing in for admin must never offer guest join");
+  assert.ok(adminSignIn.includes('type="email"'), "signing in for admin must show the account form");
+
+  for (const path of ["/api/run", "/api/submit"]) {
+    const status: number = (await postAs(valid!, path)).status;
+    if (expected === "invite") {
+      assert.equal(status, 401, `${path}: a valid guest must be 401 in invite mode`);
+    } else {
+      // Past authentication: the fake problem id is then NOT_FOUND (or the
+      // limiter answers first). Anything but 401 proves the guest got in.
+      assert.notEqual(status, 401, `${path}: a valid guest must get past auth in none mode`);
+      assert.ok([404, 429].includes(status), `${path}: unexpected ${status} for a guest`);
+    }
+  }
+  console.log(`check-api: guest cookie checks passed in ${expected} mode`);
 }
 
 /**

@@ -17,12 +17,21 @@ import { Mark, PrimaryButton, Spinner } from "./primitives";
  * way.
  *
  * Sign-up is deliberately absent. Access is invite-only, granted from the Clerk
- * dashboard, so there is no path to create an account here.
+ * dashboard, so there is no path to create an account here. When invites fail
+ * on the night, auth mode `none` lets people join as guests instead (see
+ * GuestJoinForm); this form then only serves people who already have accounts.
  */
 
 type Step = "identifier" | "code";
 
-export function SignInForm({ redirectTo = "/ide" }: { redirectTo?: string }) {
+export function SignInForm({
+  redirectTo = "/ide",
+  inviteOnly = true,
+}: {
+  redirectTo?: string;
+  /** False in auth mode `none`, where the invitation advice would be wrong. */
+  inviteOnly?: boolean;
+}) {
   const { signIn, errors } = useSignIn();
   const router = useRouter();
 
@@ -46,7 +55,7 @@ export function SignInForm({ redirectTo = "/ide" }: { redirectTo?: string }) {
    */
   const explain = (message: string | undefined) => {
     const text = message ?? "That did not work. Try again.";
-    if (/couldn't find|not found|identifier/i.test(text)) {
+    if (inviteOnly && /couldn't find|not found|identifier/i.test(text)) {
       return "No account for that email. Accounts are created by invitation, so ask an organiser to invite you.";
     }
     return text;
@@ -100,7 +109,9 @@ export function SignInForm({ redirectTo = "/ide" }: { redirectTo?: string }) {
       <h1 className="font-ide-display text-3xl font-semibold tracking-tight">Sign in</h1>
       <p className="mt-2 text-sm leading-relaxed text-ide-ink-2">
         {step === "identifier"
-          ? "Use the email address your invitation was sent to."
+          ? inviteOnly
+            ? "Use the email address your invitation was sent to."
+            : "Use the email address of your existing account."
           : `Enter the code sent to ${email}.`}
       </p>
 
@@ -190,10 +201,12 @@ export function SignInForm({ redirectTo = "/ide" }: { redirectTo?: string }) {
         )}
       </form>
 
-      <p className="mt-6 text-xs leading-relaxed text-ide-ink-3">
-        WIT IDE is open to invited members only. If you do not have an account,
-        ask a committee member to send you an invitation.
-      </p>
+      {inviteOnly && (
+        <p className="mt-6 text-xs leading-relaxed text-ide-ink-3">
+          WIT IDE is open to invited members only. If you do not have an account,
+          ask a committee member to send you an invitation.
+        </p>
+      )}
     </div>
   );
 }

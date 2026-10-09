@@ -5,6 +5,8 @@ import { AccountMenu } from "@/components/ide/AccountMenu";
 
 import { EventTimer } from "@/components/ide/event-timer";
 import { ThemeToggle } from "@/components/ide/theme";
+import { leaveGuest } from "@/app/(app)/sign-in/actions";
+import { currentGuestName } from "@/lib/auth";
 import { getEventEndsAt } from "@/lib/db/queries";
 
 // The event clock is read per request so starting or stopping a session takes
@@ -16,7 +18,7 @@ export const dynamic = "force-dynamic";
  * caret and scrollbars, which must not reach the marketing site.
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const endsAt = await getEventEndsAt();
+  const [endsAt, guestName] = await Promise.all([getEventEndsAt(), currentGuestName()]);
 
   return (
     // A fixed height, not a minimum: with min-h-screen a long statement grew the
@@ -39,17 +41,40 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="flex items-center gap-1.5">
           <EventTimer endsAt={endsAt ? endsAt.toISOString() : null} />
           <ThemeToggle />
-          <Show when="signed-out">
-            <Link
-              href="/sign-in"
-              className="ml-1 rounded-control bg-ide-accent px-4 py-2 text-sm font-semibold text-ide-on-accent transition hover:brightness-105"
-            >
-              Sign in
-            </Link>
-          </Show>
-          <Show when="signed-in">
-            <AccountMenu />
-          </Show>
+          {guestName ? (
+            // A guest (auth mode `none`) has no Clerk session, so Clerk's
+            // signed-in/out switch would offer them "Sign in" forever.
+            <form action={leaveGuest} className="ml-1 flex items-center gap-2 text-sm">
+              <span className="hidden max-w-32 truncate text-ide-ink-2 sm:block">{guestName}</span>
+              {/* Organisers who joined as a guest still need a real account for admin. */}
+              <Link
+                href="/sign-in"
+                className="rounded-control px-2.5 py-2 text-ide-ink-3 transition hover:bg-ide-panel-2 hover:text-ide-ink"
+              >
+                Sign in
+              </Link>
+              <button
+                type="submit"
+                className="rounded-control px-2.5 py-2 text-ide-ink-3 transition hover:bg-ide-panel-2 hover:text-ide-ink"
+              >
+                Leave
+              </button>
+            </form>
+          ) : (
+            <>
+              <Show when="signed-out">
+                <Link
+                  href="/sign-in"
+                  className="ml-1 rounded-control bg-ide-accent px-4 py-2 text-sm font-semibold text-ide-on-accent transition hover:brightness-105"
+                >
+                  Sign in
+                </Link>
+              </Show>
+              <Show when="signed-in">
+                <AccountMenu />
+              </Show>
+            </>
+          )}
         </div>
       </header>
       {/* Pages taller than the screen, like the leaderboard, scroll here. */}

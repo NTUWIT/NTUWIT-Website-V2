@@ -2,8 +2,6 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import { auth } from "@clerk/nextjs/server";
-
 import { Editor } from "@/components/ide/editor";
 import { ProblemList } from "@/components/ide/problem-list";
 import { ChevronIcon } from "@/components/ide/icons";
@@ -16,6 +14,8 @@ import {
   getProblemBySlug,
   listSubmissions,
 } from "@/lib/db/queries";
+import { readAuthMode, requireUser } from "@/lib/auth";
+import { showGuestJoin } from "@/lib/auth-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +26,7 @@ export const metadata = {
 };
 
 export default async function Home({ searchParams }: PageProps<"/">) {
-  const { userId } = await auth();
+  const userId = await requireUser();
   const params = await searchParams;
   const requested = typeof params.problem === "string" ? params.problem : null;
 
@@ -55,8 +55,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const counts = await countTests(problem.id);
   const hiddenCount = Math.max(0, counts.total - counts.samples);
 
-  // History is the signed-in participant's own rows only, keyed by the session
-  // id rather than anything the client could supply.
+  // History is the participant's own rows only, keyed by the Clerk session or
+  // the signed guest cookie rather than anything the client could supply.
   const history = userId
     ? (await listSubmissions(userId, problem.id)).map((row) => ({
         ...row,
@@ -172,6 +172,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             hiddenCount={hiddenCount}
             history={history}
             signedIn={Boolean(userId)}
+            guestJoin={showGuestJoin({ mode: readAuthMode().mode, participantId: userId })}
           />
         }
       />

@@ -19,6 +19,17 @@ export const submissionInput = z.object({
 export type SubmissionInput = z.infer<typeof submissionInput>;
 
 /**
+ * A guest's leaderboard name. Control and format characters are refused so a
+ * name cannot break lines or flip text direction on the shared screen.
+ */
+export const guestName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(40)
+  .refine((name) => !/[\p{Cc}\p{Cf}]/u.test(name), "Use letters, numbers and spaces.");
+
+/**
  * Parses an untrusted request body. Unknown keys (a client-supplied `userId`,
  * `timeLimitMs`, `points`, or test cases) are stripped by zod rather than
  * reaching any downstream code.

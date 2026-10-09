@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
 
 import { ChevronIcon } from "@/components/ide/icons";
+import { requireUser } from "@/lib/auth";
 import { readLeaderboard } from "@/lib/leaderboard";
 import { displayNames } from "@/lib/users";
 
@@ -15,8 +15,8 @@ export const metadata = {
 
 export default async function LeaderboardPage() {
   const rows = await readLeaderboard();
-  const [{ userId: me }, names] = await Promise.all([
-    auth(),
+  const [me, names] = await Promise.all([
+    requireUser(),
     displayNames(rows.map((row) => row.userId)),
   ]);
 
@@ -57,8 +57,8 @@ export default async function LeaderboardPage() {
                     isMe ? "font-medium text-ide-ink" : "text-ide-ink-2"
                   }`}
                 >
-                  {/* Clerk is the only store of names; unknown ids can only
-                      mean a deleted account or a Clerk outage. */}
+                  {/* Names come from Clerk or Redis (guests); an unknown
+                      id means a deleted account or an outage of either. */}
                   {names.get(row.userId) ?? "Unknown participant"}
                   {isMe && <span className="ml-2 text-xs text-ide-accent">you</span>}
                 </span>

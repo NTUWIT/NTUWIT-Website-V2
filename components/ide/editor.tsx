@@ -28,6 +28,7 @@ import {
   TONE,
   type Tone,
 } from "@/components/ide/primitives";
+import { GuestNameInline } from "@/components/ide/GuestJoinForm";
 import { useTheme } from "@/components/ide/theme";
 import { useVisualizationDock } from "@/components/ide/visualization-workspace";
 import { VisualizationPanel, type VisualizationSnapshot } from "@/components/ide/visualization";
@@ -279,6 +280,9 @@ type EditorProps = {
   hiddenCount: number;
   history: PastSubmission[];
   signedIn: boolean;
+  /** Auth is disabled (mode `none`) and nobody is signed in: offer a name field
+   *  instead of a sign-in link. Never true in `invite` mode. */
+  guestJoin: boolean;
 };
 
 export function Editor(props: EditorProps) {
@@ -305,6 +309,7 @@ function EditorPane({
   hiddenCount,
   history,
   signedIn,
+  guestJoin,
   language,
   onLanguageChange,
 }: EditorProps & {
@@ -465,7 +470,9 @@ function EditorPane({
           Reset
         </button>
 
-        {!signedIn && (
+        {!signedIn && guestJoin && <GuestNameInline />}
+
+        {!signedIn && !guestJoin && (
           <a
             href="/sign-in?next=/ide"
             className="rounded-control px-2.5 py-2 text-sm text-ide-accent-ink transition hover:bg-ide-accent-quiet"
@@ -600,7 +607,7 @@ function EditorPane({
           {tab === "custom" ? (
             <CustomInput value={customArgs} onChange={setCustomArgs} example={argsExample} />
           ) : tab === "history" ? (
-            <History entries={history} onRestore={setSource} signedIn={signedIn} />
+            <History entries={history} onRestore={setSource} signedIn={signedIn} guestJoin={guestJoin} />
           ) : (
             <Results run={runResult} submit={submitResult} busy={busy} hiddenCount={hiddenCount} />
           )}
@@ -970,14 +977,16 @@ function History({
   entries,
   onRestore,
   signedIn,
+  guestJoin,
 }: {
   entries: PastSubmission[];
   onRestore: (source: string) => void;
   signedIn: boolean;
+  guestJoin: boolean;
 }) {
   if (!signedIn) {
     return (
-      <Placeholder title="Sign in to keep your submissions">
+      <Placeholder title={guestJoin ? "Save your name to keep your submissions" : "Sign in to keep your submissions"}>
         Every submission is saved, so you can look back at what you tried and pick
         any of it up again.
       </Placeholder>
