@@ -5,15 +5,26 @@ import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth";
 import {
+  archiveProblem,
   assignProblemToSet,
+  closeRunningSessions,
   createProblem,
   createSet,
   deleteProblem,
   deleteSet,
+  getActiveSelection,
+  getProblemById,
+  getSet,
+  insertSession,
+  listSetProblemIds,
   setActiveSelection,
   setEventEndsAt,
+  setProblemOrder,
+  unarchiveProblem,
   updateProblem,
+  updateSet,
 } from "@/lib/db/queries";
+import { isReorderOf } from "@/lib/order";
 import { runTests } from "@/lib/judge/runner";
 import { LANGUAGES, type Language } from "@/lib/languages";
 import { PARAM_TYPES, RETURN_TYPES } from "@/lib/problems/signature";
@@ -41,6 +52,35 @@ async function guard(): Promise<ActionResult | null> {
 
 /* ---------- the session clock ---------- */
 
+/**
+ * Records a timed session for the results page. It must never stop a session
+ * from starting, so a failure is reported in the message instead of thrown.
+ */
+async function recordSession(startsAt: Date, endsAt: Date): Promise<string> {
+  try {
+    const active = await getActiveSelection();
+    const label = active.setId
+      ? ((await getSet(active.setId))?.name ?? "Problem set")
+      : active.problemId
+        ? ((await getProblemById(active.problemId))?.title ?? "Problem")
+        : "Session";
+    await insertSession(label, startsAt, endsAt);
+    return "";
+  } catch (error) {
+    console.error("recordSession failed", error);
+    return " The session could not be recorded for Results; use a custom time range there.";
+  }
+}
+
+/** Ends the recorded session early when its timer is cleared. Never blocks. */
+async function closeSession() {
+  try {
+    await closeRunningSessions(new Date());
+  } catch (error) {
+    console.error("closeSession failed", error);
+  }
+}
+
 export async function startEvent(minutes: number): Promise<ActionResult> {
   const denied = await guard();
   if (denied) return denied;
@@ -49,10 +89,13 @@ export async function startEvent(minutes: number): Promise<ActionResult> {
     return failed("Length must be between 1 minute and 24 hours.");
   }
 
-  const endsAt = new Date(Date.now() + minutes * 60_000);
+  const startsAt = new Date();
+  const endsAt = new Date(startsAt.getTime() + minutes * 60_000);
+  await closeSession();
   await setEventEndsAt(endsAt);
+  const warning = await recordSession(startsAt, endsAt);
   revalidatePath("/", "layout");
-  return { ok: true, message: `Countdown running until ${endsAt.toLocaleTimeString()}.` };
+  return { ok: true, message: `Countdown running until ${endsAt.toLocaleTimeString()}.${warning}` };
 }
 
 export async function stopEvent(): Promise<ActionResult> {
@@ -60,11 +103,48 @@ export async function stopEvent(): Promise<ActionResult> {
   if (denied) return denied;
 
   await setEventEndsAt(null);
+  await closeSession();
   revalidatePath("/", "layout");
   return { ok: true, message: "Countdown cleared." };
 }
 
 /* ---------- sets and activation ---------- */
+
+export async function updateSetDetails(
+  setId: string,
+  name: string,
+  description: string,
+): Promise<ActionResult> {
+  const denied = await guard();
+  if (denied) return denied;
+
+  const trimmed = name.trim();
+  if (trimmed.length < 2 || trimmed.length > 80) return failed("Give the set a name of 2 to 80 characters.");
+  if (description.length > 500) return failed("Keep the description under 500 characters.");
+  if (!(await getSet(setId))) return failed("That set no longer exists.");
+
+  await updateSet(setId, trimmed, description.trim() || null);
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Saved." };
+}
+
+/** Saves a new order. Refused unless it is exactly the set's current problems, rearranged. */
+export async function reorderSet(setId: string, orderedIds: string[]): Promise<ActionResult> {
+  const denied = await guard();
+  if (denied) return denied;
+
+  if (!Array.isArray(orderedIds) || !orderedIds.every((id) => typeof id === "string")) {
+    return failed("That order is not valid.");
+  }
+  const current = await listSetProblemIds(setId);
+  if (!isReorderOf(current, orderedIds)) {
+    return failed("The set changed while you were editing. Reload the page and try again.");
+  }
+
+  await setProblemOrder(setId, orderedIds);
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Order saved." };
+}
 
 export async function addSet(name: string, description: string, order: number): Promise<ActionResult> {
   const denied = await guard();
@@ -117,16 +197,17 @@ export async function activate(args: {
     return failed("The timer must be between 1 minute and 24 hours.");
   }
 
-  await setActiveSelection({
-    setId,
-    problemId,
-    endsAt: minutes === null ? null : new Date(Date.now() + minutes * 60_000),
-  });
+  const startsAt = new Date();
+  const endsAt = minutes === null ? null : new Date(startsAt.getTime() + minutes * 60_000);
+  await closeSession();
+  await setActiveSelection({ setId, problemId, endsAt });
+  const warning = endsAt ? await recordSession(startsAt, endsAt) : "";
 
   revalidatePath("/", "layout");
   return {
     ok: true,
-    message: minutes === null ? "Live now, with no timer." : `Live now for ${minutes} minutes.`,
+    message:
+      minutes === null ? "Live now, with no timer." : `Live now for ${minutes} minutes.${warning}`,
   };
 }
 
@@ -136,6 +217,7 @@ export async function deactivateAll(): Promise<ActionResult> {
   if (denied) return denied;
 
   await setActiveSelection({ setId: null, problemId: null, endsAt: null });
+  await closeSession();
   revalidatePath("/", "layout");
   return { ok: true, message: "Nothing is live. Scores are kept." };
 }
@@ -149,13 +231,36 @@ export async function removeProblem(problemId: string): Promise<ActionResult> {
   } catch (error) {
     if (error instanceof Error && error.message === "HAS_SUBMISSIONS") {
       return failed(
-        "Somebody has already submitted to this problem, so deleting it would delete their attempts. Move it out of the active set instead.",
+        "People have already run or submitted code on this problem, so deleting it would erase their history. Archive it instead.",
       );
     }
     return failed("Could not delete that problem.");
   }
   revalidatePath("/", "layout");
   return { ok: true, message: "Problem deleted." };
+}
+
+/** Hides a problem but keeps every submission and run. */
+export async function archive(problemId: string): Promise<ActionResult> {
+  const denied = await guard();
+  if (denied) return denied;
+
+  const active = await getActiveSelection();
+  if (active.problemId === problemId) {
+    return failed("This problem is open to participants. End the session before archiving it.");
+  }
+  await archiveProblem(problemId);
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Archived. Its submissions and results are kept." };
+}
+
+export async function unarchive(problemId: string): Promise<ActionResult> {
+  const denied = await guard();
+  if (denied) return denied;
+
+  await unarchiveProblem(problemId);
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Restored to Not in a set." };
 }
 
 /* ---------- authoring ---------- */

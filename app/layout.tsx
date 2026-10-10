@@ -3,6 +3,7 @@ import { Gabarito, Geist, Geist_Mono, Fraunces, Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "@/styles/app.css";
 
+import { InlineScript } from "@/components/InlineScript";
 import { THEME_SCRIPT } from "@/components/ide/theme";
 
 // The marketing site's faces.
@@ -53,7 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       >
         <head>
           {/* Applies the pinned IDE theme before first paint. */}
-          <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+          <InlineScript html={THEME_SCRIPT} />
         </head>
         <body className="min-h-full">{children}</body>
       </html>

@@ -215,6 +215,18 @@ async function countChecks() {
     }
   }
   console.log(`check-api: test counts agree with samples across ${problems.length} problems`);
+
+  // The console's per-problem counts are correlated subqueries; an unqualified
+  // outer column once made every one of them 0. Compare against direct counts.
+  const { listAllProblems } = await import("@/lib/db/queries");
+  const all = await listAllProblems();
+  for (const problem of all.slice(0, 10)) {
+    const counts = await countTests(problem.id);
+    assert.equal(problem.tests, counts.total, `${problem.slug}: console test count must match`);
+    assert.equal(problem.samples, counts.samples, `${problem.slug}: console sample count must match`);
+  }
+  assert.ok(all.some((p) => p.tests > 0), "at least one problem must report tests");
+  console.log(`check-api: console counts match direct counts across ${Math.min(all.length, 10)} problems`);
 }
 
 httpChecks()

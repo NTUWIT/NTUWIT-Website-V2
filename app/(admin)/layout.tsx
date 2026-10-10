@@ -28,6 +28,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <span className="text-[0.95rem] font-semibold tracking-tight">Console</span>
         </Link>
         <nav className="flex items-center gap-3 text-sm text-ide-ink-3">
+          <Link href="/admin/results" className="rounded-control px-2.5 py-2 transition hover:bg-ide-panel-2 hover:text-ide-ink">
+            Results
+          </Link>
           <Link href="/ide" className="rounded-control px-2.5 py-2 transition hover:bg-ide-panel-2 hover:text-ide-ink">
             WIT IDE
           </Link>

@@ -4,7 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { readAuthMode } from "@/lib/auth";
-import { saveGuestName } from "@/lib/auth-store";
+import { insertGuest } from "@/lib/db/queries";
 import { GUEST_COOKIE, newGuestId, signGuest } from "@/lib/guest-cookie";
 import { withinLimit } from "@/lib/ratelimit";
 import { guestName } from "@/lib/validation";
@@ -45,9 +45,11 @@ export async function joinAsGuest(name: string, redirectTo: string): Promise<Joi
   }
 
   try {
-    await saveGuestName(id, parsed.data);
-  } catch {
-    return { ok: false, error: "Could not save your name just now. Try again in a moment." };
+    await insertGuest(id, parsed.data);
+  } catch (error) {
+    // Joining must not depend on this write: this is the last-resort path. The
+    // guest still gets in and shows as "Guest" until an organiser checks why.
+    console.error("joinAsGuest: could not save guest name", error);
   }
   (await cookies()).set(GUEST_COOKIE, value, {
     httpOnly: true,

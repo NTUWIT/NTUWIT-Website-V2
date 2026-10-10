@@ -57,7 +57,7 @@ export default async function LeaderboardPage() {
                     isMe ? "font-medium text-ide-ink" : "text-ide-ink-2"
                   }`}
                 >
-                  {/* Names come from Clerk or Redis (guests); an unknown
+                  {/* Names come from Clerk or the guests table; an unknown
                       id means a deleted account or an outage of either. */}
                   {names.get(row.userId) ?? "Unknown participant"}
                   {isMe && <span className="ml-2 text-xs text-ide-accent">you</span>}

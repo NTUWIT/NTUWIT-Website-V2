@@ -1,7 +1,9 @@
+import { after } from "next/server";
+
 import { JudgeError, fail, ok } from "@/lib/errors";
 import { requireUser } from "@/lib/auth";
 import { getProblemById, getSampleTests, getSessionWindow,
-  isProblemLive } from "@/lib/db/queries";
+  insertRun, isProblemLive } from "@/lib/db/queries";
 import { checkArguments } from "@/lib/problems/validate";
 import { runTests } from "@/lib/judge/runner";
 import { isSessionOpen } from "@/lib/session";
@@ -80,10 +82,25 @@ export async function POST(request: Request) {
     // verdict: that reflects the sample tests alone.
     const sampleOutcomes = result.outcomes.filter((o) => o.index < samples.length);
     const firstFailure = sampleOutcomes.find((o) => !o.passed);
+    const verdict = firstFailure?.verdict ?? "accepted";
+    const passedCount = sampleOutcomes.filter((o) => o.passed).length;
+
+    // Kept forever for the admin results page. Written after the response so
+    // a slow or failing insert never delays or breaks the participant's run.
+    after(() =>
+      insertRun({
+        userId,
+        problemId: problem.id,
+        language: input.language,
+        status: verdict,
+        passedCount,
+        totalCount: samples.length,
+      }).catch((error) => console.error("run log: insert failed", error)),
+    );
 
     return ok({
-      verdict: firstFailure?.verdict ?? "accepted",
-      passedCount: sampleOutcomes.filter((o) => o.passed).length,
+      verdict,
+      passedCount,
       totalCount: samples.length,
       runtimeMs: result.runtimeMs,
       tests: result.outcomes.map((outcome) => ({

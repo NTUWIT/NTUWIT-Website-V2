@@ -1,12 +1,22 @@
 import "server-only";
 
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 
 import type { Language } from "@/lib/languages";
 import type { Signature } from "@/lib/problems/signature";
 import type { SessionWindow } from "@/lib/session";
 import { db } from "./client";
-import { eventSettings, problemSets, problems, scores, submissions, testCases } from "./schema";
+import {
+  eventSessions,
+  eventSettings,
+  guests,
+  problemSets,
+  problems,
+  runs,
+  scores,
+  submissions,
+  testCases,
+} from "./schema";
 
 /** The only module that issues SQL. */
 
@@ -39,9 +49,10 @@ export async function listProblems() {
     })
     .from(problems)
     .where(
-      active.setId
-        ? eq(problems.setId, active.setId)
-        : eq(problems.id, active.problemId!),
+      and(
+        isNull(problems.archivedAt),
+        active.setId ? eq(problems.setId, active.setId) : eq(problems.id, active.problemId!),
+      ),
     )
     .orderBy(asc(problems.order), asc(problems.title));
 }
@@ -53,13 +64,19 @@ export async function listProblems() {
  */
 export async function isProblemLive(problemId: string): Promise<boolean> {
   const active = await getActiveSelection();
-  if (active.problemId) return active.problemId === problemId;
-  if (!active.setId) return false;
+  if (!active.setId && !active.problemId) return false;
 
+  // Archived problems are never live, whatever the selection says.
   const [row] = await db
     .select({ id: problems.id })
     .from(problems)
-    .where(and(eq(problems.id, problemId), eq(problems.setId, active.setId)))
+    .where(
+      and(
+        eq(problems.id, problemId),
+        isNull(problems.archivedAt),
+        active.setId ? eq(problems.setId, active.setId) : eq(problems.id, active.problemId!),
+      ),
+    )
     .limit(1);
   return row !== undefined;
 }
@@ -76,8 +93,16 @@ export async function listAllProblems() {
       timeLimitMs: problems.timeLimitMs,
       setId: problems.setId,
       order: problems.order,
-      tests: sql<number>`(select count(*)::int from ${testCases} where ${testCases.problemId} = ${problems.id})`,
-      samples: sql<number>`(select count(*)::int from ${testCases} where ${testCases.problemId} = ${problems.id} and ${testCases.isSample})`,
+      archivedAt: problems.archivedAt,
+      // The outer id is written out as "problems"."id" on purpose. Drizzle
+      // renders ${problems.id} unqualified here, and inside a subquery a bare
+      // "id" means the inner table's own id, so every count came out 0.
+      // Submissions plus runs: above zero means the problem has history, so
+      // the console offers Archive instead of Delete.
+      attempts: sql<number>`(select count(*)::int from ${submissions} where ${submissions.problemId} = "problems"."id")
+        + (select count(*)::int from ${runs} where ${runs.problemId} = "problems"."id")`,
+      tests: sql<number>`(select count(*)::int from ${testCases} where ${testCases.problemId} = "problems"."id")`,
+      samples: sql<number>`(select count(*)::int from ${testCases} where ${testCases.problemId} = "problems"."id" and ${testCases.isSample})`,
     })
     .from(problems)
     .orderBy(asc(problems.order), asc(problems.title));
@@ -317,14 +342,16 @@ export async function createProblem(input: {
 }
 
 
-/** Deletes a draft and its test cases. Submissions cascade, so this refuses
- *  once anyone has attempted the problem. */
+/** Deletes a draft and its test cases. Submissions and runs cascade, so this
+ *  refuses once anyone has submitted or run code against the problem: that
+ *  history is kept forever. */
 export async function deleteProblem(problemId: string) {
-  const [attempted] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(submissions)
-    .where(eq(submissions.problemId, problemId));
-  if ((attempted?.count ?? 0) > 0) throw new Error("HAS_SUBMISSIONS");
+  const count = sql<number>`count(*)::int`;
+  const [[submitted], [ran]] = await Promise.all([
+    db.select({ count }).from(submissions).where(eq(submissions.problemId, problemId)),
+    db.select({ count }).from(runs).where(eq(runs.problemId, problemId)),
+  ]);
+  if ((submitted?.count ?? 0) + (ran?.count ?? 0) > 0) throw new Error("HAS_SUBMISSIONS");
   await db.delete(problems).where(eq(problems.id, problemId));
 }
 
@@ -360,9 +387,60 @@ export async function deleteSet(setId: string) {
   await db.delete(problemSets).where(eq(problemSets.id, setId));
 }
 
-/** Moves a problem into a set, or out of every set when given null. */
+/**
+ * Hides a problem from the console and participants without touching its
+ * submissions or runs. It leaves its set, so unarchiving returns it to Not in
+ * a set rather than silently back into whatever set is open.
+ */
+export async function archiveProblem(problemId: string) {
+  await db.update(problems).set({ archivedAt: new Date(), setId: null }).where(eq(problems.id, problemId));
+}
+
+export async function unarchiveProblem(problemId: string) {
+  await db.update(problems).set({ archivedAt: null }).where(eq(problems.id, problemId));
+}
+
+/** Moves a problem into a set (at the end of it), or out of every set when given null. */
 export async function assignProblemToSet(problemId: string, setId: string | null) {
-  await db.update(problems).set({ setId }).where(eq(problems.id, problemId));
+  if (!setId) {
+    await db.update(problems).set({ setId }).where(eq(problems.id, problemId));
+    return;
+  }
+  await db
+    .update(problems)
+    .set({
+      setId,
+      order: sql`(select coalesce(max(${problems.order}), -1) + 1 from ${problems} where ${problems.setId} = ${setId})`,
+    })
+    .where(eq(problems.id, problemId));
+}
+
+export async function getSet(setId: string) {
+  const [set] = await db.select().from(problemSets).where(eq(problemSets.id, setId)).limit(1);
+  return set ?? null;
+}
+
+export async function updateSet(setId: string, name: string, description: string | null) {
+  await db.update(problemSets).set({ name, description }).where(eq(problemSets.id, setId));
+}
+
+/** The set's problem ids in their current order. */
+export async function listSetProblemIds(setId: string): Promise<string[]> {
+  const rows = await db
+    .select({ id: problems.id })
+    .from(problems)
+    .where(eq(problems.setId, setId))
+    .orderBy(asc(problems.order), asc(problems.title));
+  return rows.map((row) => row.id);
+}
+
+/** Writes order = position for every problem in the set, as one transaction. */
+export async function setProblemOrder(setId: string, orderedIds: string[]) {
+  if (orderedIds.length === 0) return;
+  const [first, ...rest] = orderedIds.map((id, order) =>
+    db.update(problems).set({ order }).where(and(eq(problems.id, id), eq(problems.setId, setId))),
+  );
+  await db.batch([first!, ...rest]);
 }
 
 /**
@@ -444,4 +522,87 @@ export async function countSubmissions(problemId: string) {
     .from(submissions)
     .where(eq(submissions.problemId, problemId));
   return row?.count ?? 0;
+}
+
+/* ---------- runs, sessions and results ---------- */
+
+export async function insertRun(row: {
+  userId: string;
+  problemId: string;
+  language: Language;
+  status: string;
+  passedCount: number;
+  totalCount: number;
+}) {
+  await db.insert(runs).values(row);
+}
+
+/** Records a timed session when its timer starts. */
+export async function insertSession(label: string, startsAt: Date, endsAt: Date) {
+  await db.insert(eventSessions).values({ label, startsAt, endsAt });
+}
+
+/** A timer cleared or a session ended early: the running session ends now. */
+export async function closeRunningSessions(now: Date) {
+  await db
+    .update(eventSessions)
+    .set({ endsAt: now })
+    .where(and(lt(eventSessions.startsAt, now), gt(eventSessions.endsAt, now)));
+}
+
+export async function listSessions(limit = 50) {
+  return db.select().from(eventSessions).orderBy(desc(eventSessions.startsAt)).limit(limit);
+}
+
+/** Every submission in [from, to), without source: the results page needs timing and outcome only. */
+export async function listSubmissionsBetween(from: Date, to: Date) {
+  return db
+    .select({
+      id: submissions.id,
+      userId: submissions.userId,
+      problemId: submissions.problemId,
+      language: submissions.language,
+      status: submissions.status,
+      passedCount: submissions.passedCount,
+      totalCount: submissions.totalCount,
+      score: submissions.score,
+      createdAt: submissions.createdAt,
+    })
+    .from(submissions)
+    .where(and(gte(submissions.createdAt, from), lt(submissions.createdAt, to)))
+    .orderBy(asc(submissions.createdAt));
+}
+
+export async function listRunsBetween(from: Date, to: Date) {
+  return db
+    .select({
+      id: runs.id,
+      userId: runs.userId,
+      problemId: runs.problemId,
+      language: runs.language,
+      status: runs.status,
+      passedCount: runs.passedCount,
+      totalCount: runs.totalCount,
+      createdAt: runs.createdAt,
+    })
+    .from(runs)
+    .where(and(gte(runs.createdAt, from), lt(runs.createdAt, to)))
+    .orderBy(asc(runs.createdAt));
+}
+
+/* ---------- guests ---------- */
+
+export async function insertGuest(id: string, displayName: string) {
+  await db.insert(guests).values({ id, displayName });
+}
+
+export async function getGuestNames(ids: string[]): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  if (ids.length === 0) return names;
+  const rows = await db
+    .select({ id: guests.id, displayName: guests.displayName })
+    .from(guests)
+    .where(inArray(guests.id, ids));
+  for (const row of rows) names.set(row.id, row.displayName);
+  return names;
 }

@@ -4,7 +4,7 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
 
 import { isGuestId, resolveAuthMode, resolveParticipant, type ResolvedAuthMode } from "@/lib/auth-mode";
-import { getGuestNames } from "@/lib/auth-store";
+import { getGuestNames } from "@/lib/db/queries";
 import { GUEST_COOKIE, verifyGuest } from "@/lib/guest-cookie";
 
 /** The participant auth mode, from AUTH_MODE_OVERRIDE. No I/O, so it cannot fail. */

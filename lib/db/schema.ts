@@ -48,6 +48,9 @@ export const problems = pgTable(
     points: integer("points").notNull().default(100),
     visibleFrom: timestamp("visible_from", { withTimezone: true }),
     order: integer("order").notNull().default(0),
+    // Archived problems are hidden from the console and from participants but
+    // keep every submission and run: the alternative to deleting history.
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
   },
   (t) => [uniqueIndex("problems_slug_idx").on(t.slug)],
 );
@@ -88,6 +91,44 @@ export const submissions = pgTable(
   },
   (t) => [index("submissions_user_problem_idx").on(t.userId, t.problemId)],
 );
+
+// Every Run click: when, on what, and how the sample tests went. Kept forever,
+// like submissions, so the results page can show a participant's full history.
+// Source is not stored: runs are frequent and only their timing matters here.
+export const runs = pgTable(
+  "runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    problemId: uuid("problem_id")
+      .notNull()
+      .references(() => problems.id, { onDelete: "cascade" }),
+    language: text("language").$type<Language>().notNull(),
+    status: text("status").notNull(),
+    passedCount: integer("passed_count").notNull().default(0),
+    totalCount: integer("total_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("runs_created_idx").on(t.createdAt)],
+);
+
+// Every timed session, recorded when its timer starts. `event_settings` holds
+// only the live clock and forgets it when the timer is cleared; this is what
+// the results page lists. `label` snapshots the set or problem name at the time.
+export const eventSessions = pgTable("event_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  label: text("label").notNull(),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+});
+
+// Participants who joined without an account while AUTH_MODE_OVERRIDE=none.
+// The id is what their signed cookie carries and what submissions key on.
+export const guests = pgTable("guests", {
+  id: text("id").primaryKey(),
+  displayName: text("display_name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 // Denormalised best-score-per-problem. The leaderboard aggregates this table
 // rather than recomputing over `submissions`.

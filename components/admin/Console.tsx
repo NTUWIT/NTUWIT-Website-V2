@@ -6,6 +6,8 @@ import { useState, useTransition } from "react";
 import {
   activate,
   addSet,
+  archive,
+  unarchive,
   deactivateAll,
   moveProblem,
   removeProblem,
@@ -15,6 +17,7 @@ import {
   type ActionResult,
 } from "@/app/(admin)/admin/actions";
 import { ClockIcon, PlayIcon } from "@/components/ide/icons";
+import { DurationPicker } from "./DurationPicker";
 import {
   GhostButton,
   Mark,
@@ -34,6 +37,9 @@ export type AdminProblem = {
   setId: string | null;
   tests: number;
   samples: number;
+  /** Submissions plus runs. Above zero, the problem can be archived but not deleted. */
+  attempts: number;
+  archivedAt: Date | null;
 };
 
 export type AdminSet = {
@@ -53,7 +59,7 @@ export type AdminSet = {
  */
 export function Console({
   sets,
-  problems,
+  problems: allProblems,
   activeSetId,
   activeProblemId,
   endsAt,
@@ -66,15 +72,16 @@ export function Console({
   endsAt: string | null;
   remainingMinutes: number;
 }) {
+  const problems = allProblems.filter((problem) => !problem.archivedAt);
+  const archived = allProblems.filter((problem) => problem.archivedAt);
   const [result, setResult] = useState<ActionResult | null>(null);
   const [pending, startTransition] = useTransition();
-  const [minutes, setMinutes] = useState<number | "">("");
+  const [timer, setTimer] = useState<number | null>(null);
   const [newSetName, setNewSetName] = useState("");
 
   const run = (action: () => Promise<ActionResult>) =>
     startTransition(async () => setResult(await action()));
 
-  const timer = minutes === "" ? null : Number(minutes);
   const liveSet = sets.find((set) => set.id === activeSetId) ?? null;
   const liveProblem = problems.find((problem) => problem.id === activeProblemId) ?? null;
   const openProblems = liveSet
@@ -169,25 +176,11 @@ export function Console({
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 className="font-ide-display text-xl font-semibold tracking-tight">Library</h2>
           {!empty && (
-            // One control that reads as a sentence, rather than a label, a
-            // number box and a unit pretending to be one.
-            <label className="flex w-full items-center gap-2 text-xs text-ide-ink-3 sm:ml-auto sm:w-auto">
-              When opened
-              <select
-                value={minutes}
-                onChange={(event) =>
-                  setMinutes(event.target.value === "" ? "" : Number(event.target.value))
-                }
-                className="rounded-control bg-ide-panel px-2.5 py-2 text-xs text-ide-ink outline-none"
-              >
-                <option value="">Run without a timer</option>
-                <option value={30}>Run for 30 minutes</option>
-                <option value={45}>Run for 45 minutes</option>
-                <option value={60}>Run for 60 minutes</option>
-                <option value={90}>Run for 90 minutes</option>
-                <option value={120}>Run for 120 minutes</option>
-              </select>
-            </label>
+            // Applies to whichever set or problem is opened next.
+            <div className="mt-2 w-full">
+              <p className="mb-1.5 text-xs text-ide-ink-3">Timer when opened</p>
+              <DurationPicker value={timer} onChange={setTimer} allowNone disabled={pending} />
+            </div>
           )}
         </div>
 
@@ -264,6 +257,13 @@ export function Console({
                       {members.length} problem{members.length === 1 ? "" : "s"}
                     </span>
 
+                    <Link
+                      href={`/admin/sets/${set.id}`}
+                      className="rounded-control px-2.5 py-2 text-xs text-ide-ink-3 transition hover:bg-ide-panel-3 hover:text-ide-ink"
+                    >
+                      Edit
+                    </Link>
+
                     {live ? (
                       <span className="text-xs text-ide-ink-3">Currently open</span>
                     ) : members.length > 0 ? (
@@ -288,6 +288,30 @@ export function Console({
                 );
               })}
             </ul>
+
+            {archived.length > 0 && (
+              <details className="mt-4 px-2">
+                <summary className="cursor-pointer pb-1 text-sm font-medium text-ide-ink-2 hover:text-ide-ink">
+                  Archived <span className="tnum font-normal text-ide-ink-3">{archived.length}</span>
+                </summary>
+                <p className="pb-2 text-xs text-ide-ink-3">
+                  Hidden from participants. Their submissions and results are kept.
+                </p>
+                <ul className="space-y-1.5">
+                  {archived.map((problem) => (
+                    <li key={problem.id} className="flex items-center gap-3 rounded-inset bg-ide-panel px-4 py-3">
+                      <span className="min-w-0 flex-1 truncate text-sm text-ide-ink-2">{problem.title}</span>
+                      <span className="tnum text-xs text-ide-ink-3">
+                        {problem.attempts} attempt{problem.attempts === 1 ? "" : "s"}
+                      </span>
+                      <GhostButton disabled={pending} onClick={() => run(() => unarchive(problem.id))} className="text-xs">
+                        Restore
+                      </GhostButton>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
 
             {unassigned.length > 0 && (
               <>
@@ -384,7 +408,7 @@ function ClockControl({
   onStart: (minutes: number) => void;
   onStop: () => void;
 }) {
-  const [minutes, setMinutes] = useState(30);
+  const [minutes, setMinutes] = useState<number | null>(30);
 
   if (endsAt) {
     return (
@@ -396,17 +420,13 @@ function ClockControl({
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <input
-        type="number"
-        min={1}
-        max={1440}
-        value={minutes}
-        onChange={(event) => setMinutes(Number(event.target.value))}
-        aria-label="Minutes"
-        className="tnum w-16 rounded-control bg-ide-panel-2 px-2 py-1.5 text-sm text-ide-ink outline-none"
-      />
-      <SecondaryButton disabled={pending} onClick={() => onStart(minutes)}>
+    <div className="flex w-full flex-col gap-2">
+      <DurationPicker value={minutes} onChange={setMinutes} disabled={pending} />
+      <SecondaryButton
+        disabled={pending || minutes === null}
+        onClick={() => minutes !== null && onStart(minutes)}
+        className="self-start"
+      >
         <ClockIcon className="h-3.5 w-3.5" />
         Start timer
       </SecondaryButton>
@@ -469,24 +489,37 @@ function LooseProblemRow({
         Edit
       </Link>
 
-      <button
-        type="button"
-        disabled={pending}
-        onClick={() => {
-          if (confirming) {
-            run(() => removeProblem(problem.id));
-            setConfirming(false);
-            return;
-          }
-          setConfirming(true);
-        }}
-        onBlur={() => setConfirming(false)}
-        className={`rounded-control px-2.5 py-2 text-xs transition disabled:opacity-40 ${
-          confirming ? "bg-ide-fail-quiet font-medium text-ide-fail" : "text-ide-ink-3 hover:text-ide-fail"
-        }`}
-      >
-        {confirming ? "Really delete?" : "Delete"}
-      </button>
+      {problem.attempts > 0 ? (
+        // Has history, so it can only be hidden, never erased. Reversible, so one click.
+        <button
+          type="button"
+          disabled={pending || live}
+          title={live ? "End the session before archiving" : "Hides it and keeps all its submissions"}
+          onClick={() => run(() => archive(problem.id))}
+          className="rounded-control px-2.5 py-2 text-xs text-ide-ink-3 transition hover:bg-ide-panel-3 hover:text-ide-ink disabled:opacity-40"
+        >
+          Archive
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => {
+            if (confirming) {
+              run(() => removeProblem(problem.id));
+              setConfirming(false);
+              return;
+            }
+            setConfirming(true);
+          }}
+          onBlur={() => setConfirming(false)}
+          className={`rounded-control px-2.5 py-2 text-xs transition disabled:opacity-40 ${
+            confirming ? "bg-ide-fail-quiet font-medium text-ide-fail" : "text-ide-ink-3 hover:text-ide-fail"
+          }`}
+        >
+          {confirming ? "Really delete?" : "Delete"}
+        </button>
+      )}
 
       {live ? (
         <span className="text-xs text-ide-ink-3">Currently open</span>
