@@ -8,7 +8,7 @@ const DockContext = createContext<HTMLDivElement | null>(null);
 export const useVisualizationDock = () => useContext(DockContext);
 
 /** The last accepted submission, so the problem pane can say so in place of the problem. */
-export type Solved = { problemId: string; score: number; total: number } | null;
+export type Solved = { problemId: string; score: number; total: number; runtimeMs: number; memoryKb: number | null } | null;
 const SolvedContext = createContext<[Solved, (solved: Solved) => void]>([null, () => {}]);
 export const useSolved = () => useContext(SolvedContext);
 

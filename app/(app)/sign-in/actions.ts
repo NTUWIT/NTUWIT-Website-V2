@@ -47,9 +47,9 @@ export async function joinAsGuest(name: string, redirectTo: string): Promise<Joi
   try {
     await insertGuest(id, parsed.data);
   } catch (error) {
-    // Joining must not depend on this write: this is the last-resort path. The
-    // guest still gets in and shows as "Guest" until an organiser checks why.
+    // No saved name, no entry: an unnamed guest would show up as unknown.
     console.error("joinAsGuest: could not save guest name", error);
+    return { ok: false, error: "Couldn't join right now. Try again in a moment." };
   }
   (await cookies()).set(GUEST_COOKIE, value, {
     httpOnly: true,

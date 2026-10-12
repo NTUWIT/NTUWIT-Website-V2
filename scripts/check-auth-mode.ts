@@ -81,11 +81,10 @@ for (const id of [
 
 const p = resolveParticipant;
 
-// A Clerk session wins in every mode.
-for (const mode of AUTH_MODES) {
-  assert.equal(p({ mode, clerkUserId: "user_1", guestId: null }), "user_1");
-  assert.equal(p({ mode, clerkUserId: "user_1", guestId: GUEST }), "user_1");
-}
+// Invite: the Clerk account. None: never a Clerk account, only a guest.
+assert.equal(p({ mode: "invite", clerkUserId: "user_1", guestId: GUEST }), "user_1");
+assert.equal(p({ mode: "none", clerkUserId: "user_1", guestId: null }), null, "no-auth ignores Clerk");
+assert.equal(p({ mode: "none", clerkUserId: "user_1", guestId: GUEST }), GUEST);
 // A guest resolves only in none.
 assert.equal(p({ mode: "none", clerkUserId: null, guestId: GUEST }), GUEST);
 assert.equal(p({ mode: "invite", clerkUserId: null, guestId: GUEST }), null);
@@ -118,9 +117,9 @@ for (const who of [null, "user_1", GUEST]) {
   assert.equal(view("invite", who), "account", `invite mode, ${who}`);
   assert.equal(view("invite", who, "/admin"), "account", `invite mode to admin, ${who}`);
 }
-// Auth disabled, heading for the IDE: nobody joins, a Clerk user moves on.
+// Auth disabled, heading for the IDE: everyone, Clerk users too, enters a name.
 assert.equal(view("none", null), "guest");
-assert.equal(view("none", "user_1"), "redirect");
+assert.equal(view("none", "user_1"), "guest");
 // A guest who comes back to sign in wants an account, not a second guest name.
 assert.equal(view("none", GUEST), "account");
 // Heading for admin is never the guest form, in any mode, for anyone.

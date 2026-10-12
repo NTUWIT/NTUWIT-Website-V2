@@ -36,6 +36,11 @@
   --ide-info: #2a60b8;
   --ide-info-quiet: #ebf1fb;
 
+  /* Podium. Leaderboard only. */
+  --ide-gold: #a87a06;
+  --ide-silver: #6b7480;
+  --ide-bronze: #a0582c;
+
   --ide-shadow-panel: 0 1px 2px rgb(25 20 22 / 0.04), 0 10px 24px -14px rgb(25 20 22 / 0.18);
 }
 
@@ -67,6 +72,10 @@
     --ide-fail-quiet: #2c161c;
     --ide-info: #7fa8ef;
     --ide-info-quiet: #151d2c;
+
+    --ide-gold: #f2c24b;
+    --ide-silver: #c3cad3;
+    --ide-bronze: #d9905f;
 
     --ide-shadow-panel: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 24px -14px rgb(0 0 0 / 0.7);
   }
@@ -100,6 +109,10 @@
   --ide-info: #7fa8ef;
   --ide-info-quiet: #151d2c;
 
+  --ide-gold: #f2c24b;
+  --ide-silver: #c3cad3;
+  --ide-bronze: #d9905f;
+
   --ide-shadow-panel: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 24px -14px rgb(0 0 0 / 0.7);
 }
 
@@ -127,6 +140,10 @@
   --color-ide-fail-quiet: var(--ide-fail-quiet);
   --color-ide-info: var(--ide-info);
   --color-ide-info-quiet: var(--ide-info-quiet);
+
+  --color-ide-gold: var(--ide-gold);
+  --color-ide-silver: var(--ide-silver);
+  --color-ide-bronze: var(--ide-bronze);
 
   /* One rhythm rules both panes. */
   --radius-panel: 1.125rem;

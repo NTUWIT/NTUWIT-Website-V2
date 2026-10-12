@@ -72,7 +72,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   }));
 
   const statement = (
-    <aside className="flex h-full min-h-0 min-w-0 flex-col p-3 pt-0 lg:pr-1.5">
+    <aside className="flex h-full min-h-0 min-w-0 flex-1 flex-col p-3 pt-0 lg:pr-1.5">
       <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-panel bg-ide-panel shadow-ide-panel">
         {all.length > 1 && index >= 0 && <ProblemNav index={index} count={all.length} prev={prev} next={next} />}
         <StatementPane problemId={problem.id} next={next}>

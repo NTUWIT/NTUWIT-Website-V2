@@ -64,19 +64,24 @@ export function signInView(input: {
   redirectTo: string;
 }): "guest" | "account" | "redirect" {
   const clerkUser = Boolean(input.participantId) && !isGuestId(input.participantId);
+  const toAdmin = input.redirectTo === "/admin" || input.redirectTo.startsWith("/admin/");
   if (input.mode === "invite") return "account";
-  if (clerkUser) return "redirect";
-  if (input.redirectTo === "/admin" || input.redirectTo.startsWith("/admin/")) return "account";
+  // Auth disabled: a Clerk session only opens admin. In the IDE it is nobody,
+  // so a Clerk user picks a name like everyone else.
+  if (clerkUser) return toAdmin ? "redirect" : "guest";
+  if (toAdmin) return "account";
   return input.participantId ? "account" : "guest";
 }
 
-/** A Clerk session always wins. A guest only counts in `none` mode. */
+/**
+ * Invite mode: Clerk accounts only. None mode: named guests only, a Clerk
+ * session never acts as a participant (it is for admin).
+ */
 export function resolveParticipant(input: {
   mode: AuthMode;
   clerkUserId: string | null;
   guestId: string | null;
 }): string | null {
-  if (input.clerkUserId) return input.clerkUserId;
-  if (input.mode === "none" && isGuestId(input.guestId)) return input.guestId;
-  return null;
+  if (input.mode === "invite") return input.clerkUserId;
+  return isGuestId(input.guestId) ? input.guestId : null;
 }

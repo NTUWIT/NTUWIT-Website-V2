@@ -196,6 +196,7 @@ type SubmitResponse =
       passedCount: number;
       totalCount: number;
       runtimeMs: number;
+      memoryKb: number | null;
       failedAt: number | null;
       score: number;
       tests: SubmitTest[];
@@ -477,7 +478,7 @@ function EditorPane({
     try {
       const result = (await post("/api/submit")) as SubmitResponse;
       setSubmitResult(result);
-      if (result.ok && result.verdict === "accepted") setSolved({ problemId, score: result.score, total: result.totalCount });
+      if (result.ok && result.verdict === "accepted") setSolved({ problemId, score: result.score, total: result.totalCount, runtimeMs: result.runtimeMs, memoryKb: result.memoryKb });
       // The new row is rendered on the server; refresh so History includes it.
       router.refresh();
     } catch {

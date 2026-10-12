@@ -31,6 +31,8 @@ export type RunResult = {
   passedCount: number;
   totalCount: number;
   runtimeMs: number;
+  /** Peak across batches; null when the judge does not report memory. */
+  memoryKb: number | null;
   outcomes: TestOutcome[];
 };
 
@@ -176,6 +178,7 @@ export async function runTests(
       passedCount: 0,
       totalCount: args.tests.length,
       runtimeMs: 0,
+      memoryKb: null,
       outcomes: args.tests.map((_, index) => ({
         index,
         passed: false,
@@ -189,6 +192,7 @@ export async function runTests(
   const runs: { result: ExecResult; verdict: Verdict }[] = [];
   const toCheck: { run: number; check: CheckCase }[] = [];
   let runtimeMs = 0;
+  let memoryKb: number | null = null;
 
   // The checker decides a run that finished cleanly. An answer that is not
   // even valid JSON, or a custom case with no reference answer, cannot be
@@ -248,6 +252,7 @@ export async function runTests(
       throw new JudgeError("execution failed");
     }
     runtimeMs += Math.round(performance.now() - startedAt);
+    if (result.memoryKb != null) memoryKb = Math.max(memoryKb ?? 0, result.memoryKb);
 
     // The source cannot compile, so every remaining test would fail the same
     // way. Stopping here keeps a broken submission cheap.
@@ -301,6 +306,7 @@ export async function runTests(
     passedCount,
     totalCount: args.tests.length,
     runtimeMs,
+    memoryKb,
     outcomes,
   };
 }

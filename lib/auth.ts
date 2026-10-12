@@ -24,17 +24,17 @@ export function readAuthMode(): ResolvedAuthMode {
  * through isAdmin / requireAdmin, which read Clerk only.
  */
 export async function requireUser(): Promise<string | null> {
-  const { userId } = await auth();
-  // A Clerk session wins in every mode, so signed-in participants never pay
-  // for the settings read.
-  if (userId) return userId;
-
   const { mode } = readAuthMode();
+  const clerkUserId = mode === "invite" ? (await auth()).userId : null;
   const guestId =
     mode === "none"
       ? verifyGuest((await cookies()).get(GUEST_COOKIE)?.value, process.env.GUEST_COOKIE_SECRET)
       : null;
-  return resolveParticipant({ mode, clerkUserId: null, guestId });
+  const participant = resolveParticipant({ mode, clerkUserId, guestId });
+  // A guest counts only once their name is saved: nobody acts unnamed. A
+  // database outage fails closed too, since run and submit need it anyway.
+  if (participant && !(await getGuestNames([participant]).catch(() => new Map())).has(participant)) return null;
+  return participant;
 }
 
 /** The current guest's display name, or null for a Clerk user or nobody. */

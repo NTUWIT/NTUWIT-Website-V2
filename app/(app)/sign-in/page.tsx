@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
 import { GuestJoinForm } from "@/components/ide/GuestJoinForm";
@@ -24,7 +25,9 @@ export default async function SignInPage({
 
   // Only the IDE opens up when auth is disabled. Anything headed for /admin
   // gets the account form, and a guest cookie never counts for it.
-  const view = signInView({ mode, participantId: await requireUser(), redirectTo });
+  // A Clerk session counts here even with auth disabled: it is how admin signs in.
+  const participantId = (await auth()).userId ?? (await requireUser());
+  const view = signInView({ mode, participantId, redirectTo });
   if (view === "redirect") redirect(redirectTo);
 
   if (view === "guest") {

@@ -130,6 +130,18 @@ export function StatementPane({ problemId, next, children }: { problemId: string
           All {solved.total} tests passed · {solved.score} points
         </p>
       </div>
+      <dl className="tnum grid grid-cols-2 divide-x divide-ide-hairline rounded-inset bg-ide-panel-2 py-3 text-left">
+        <div className="px-5">
+          <dt className="text-xs text-ide-ink-3">Runtime</dt>
+          <dd className="mt-0.5 font-mono text-lg text-ide-ink">{solved.runtimeMs} ms</dd>
+        </div>
+        <div className="px-5">
+          <dt className="text-xs text-ide-ink-3">Memory</dt>
+          <dd className="mt-0.5 font-mono text-lg text-ide-ink">
+            {solved.memoryKb == null ? "n/a" : `${(solved.memoryKb / 1024).toFixed(1)} MB`}
+          </dd>
+        </div>
+      </dl>
       <div className="flex flex-wrap items-center justify-center gap-2">
         {next && (
           <Link

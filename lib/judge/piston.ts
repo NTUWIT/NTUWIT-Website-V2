@@ -60,6 +60,8 @@ const pistonResponse = z.object({
     signal: z.string().nullable(),
     // Set when Piston killed the run itself, e.g. "stdout length exceeded".
     message: z.string().nullable().optional(),
+    // Peak memory in bytes; only newer Piston builds report it.
+    memory: z.number().nullable().optional(),
   }),
   compile: z
     .object({
@@ -77,6 +79,8 @@ export type ExecResult = {
   exitCode: number | null;
   signal: string | null;
   compileError: string | null;
+  /** Peak memory of the run, when Piston reports it. */
+  memoryKb?: number | null;
   /** Piston's own reason for killing the run, when it gave one. */
   message?: string | null;
 };
@@ -159,6 +163,7 @@ export async function execute(args: {
     exitCode: run.code,
     signal: run.signal,
     message: run.message ?? null,
+    memoryKb: run.memory == null ? null : Math.round(run.memory / 1024),
     compileError: javacFailed
       ? run.stderr
       : compile && compile.code !== 0

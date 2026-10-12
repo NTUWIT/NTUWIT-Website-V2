@@ -95,6 +95,7 @@ export async function POST(request: Request) {
     passedCount: result.passedCount,
     totalCount: result.totalCount,
     runtimeMs: result.runtimeMs,
+    memoryKb: result.memoryKb,
     failedAt: firstFailure ? firstFailure.index + 1 : null,
     score,
     tests: result.outcomes.map((outcome) => ({

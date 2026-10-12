@@ -126,3 +126,10 @@ export const BeakerIcon = (props: IconProps) => (
     <path d="M7.2 14.5h9.6" />
   </Svg>
 );
+
+export const CrownIcon = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M4 17.5 3 7.5l5 4 4-6 4 6 5-4-1 10z" fill="currentColor" fillOpacity={0.2} />
+    <path d="M5 20.5h14" />
+  </Svg>
+);

@@ -5,7 +5,8 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { isGuestId } from "@/lib/auth-mode";
 import { getGuestNames } from "@/lib/db/queries";
 
-export type Participant = { name: string; account: string };
+/** `publicName` is what anyone may see: never an email. */
+export type Participant = { name: string; account: string; publicName: string };
 
 /** Clerk's getUserList caps a page; 100 keeps each call well inside it. */
 const CLERK_PAGE = 100;
@@ -28,7 +29,7 @@ export async function describeParticipants(userIds: string[]): Promise<Map<strin
 
   try {
     for (const [id, name] of await getGuestNames(guestIds)) {
-      people.set(id, { name, account: "Guest, no account" });
+      people.set(id, { name, account: "Guest, no account", publicName: name });
     }
   } catch {
     // Falls back to the caller's placeholder, like a Clerk outage.
@@ -43,7 +44,11 @@ export async function describeParticipants(userIds: string[]): Promise<Map<strin
         const email =
           user.primaryEmailAddress?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? "";
         const full = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
-        people.set(user.id, { name: full || user.username || email || "Anonymous", account: email });
+        people.set(user.id, {
+          name: full || user.username || email || "Anonymous",
+          account: email,
+          publicName: user.firstName?.trim() || user.username || "Anonymous",
+        });
       }
     }
   } catch {
@@ -53,8 +58,8 @@ export async function describeParticipants(userIds: string[]): Promise<Map<strin
   return people;
 }
 
-/** Names only, for the leaderboard. */
+/** Public names only, for the leaderboard: first names, never emails. */
 export async function displayNames(userIds: string[]): Promise<Map<string, string>> {
   const people = await describeParticipants(userIds);
-  return new Map([...people].map(([id, person]) => [id, person.name]));
+  return new Map([...people].map(([id, person]) => [id, person.publicName]));
 }
