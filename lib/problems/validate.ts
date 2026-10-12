@@ -8,7 +8,7 @@
  * Pure and dependency-free so it can run in a script, in a seed, in a test, in
  * the route that checks custom input, and in the browser as the wizard is typed.
  */
-import { MAX_OUTPUT_BYTES, MAX_STDIN_BYTES, REQUEST_TIMEOUT_MS } from "@/lib/judge/limits";
+import { MAX_OUTPUT_BYTES, MAX_RUN_TIMEOUT_MS, MAX_STDIN_BYTES } from "@/lib/judge/limits";
 import { LANGUAGES, type Language } from "@/lib/languages";
 import {
   answerType,
@@ -313,12 +313,12 @@ export function validateProblem(problem: ProblemLike): string[] {
 
   if (problem.points <= 0) at("points must be positive");
 
-  // FINDING #8: the judge's own HTTP abort is a hard ceiling independent of the
-  // problem. A problem authored at or above it can never return a real verdict.
-  if (problem.timeLimitMs >= REQUEST_TIMEOUT_MS) {
+  // FINDING #8: Piston refuses a run timeout above its own PISTON_RUN_TIMEOUT,
+  // so a problem authored above it can never return a real verdict.
+  if (problem.timeLimitMs > MAX_RUN_TIMEOUT_MS) {
     at(
-      `timeLimitMs ${problem.timeLimitMs} is at or above the judge request ceiling ` +
-        `${REQUEST_TIMEOUT_MS}, so a slow-but-legal run reports JUDGE_UNAVAILABLE`,
+      `timeLimitMs ${problem.timeLimitMs} is above the judge's run ceiling ` +
+        `${MAX_RUN_TIMEOUT_MS}, so every run reports JUDGE_UNAVAILABLE`,
     );
   }
 

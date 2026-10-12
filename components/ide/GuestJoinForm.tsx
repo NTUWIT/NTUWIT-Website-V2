@@ -62,56 +62,29 @@ export function GuestJoinForm({ redirectTo = "/ide" }: { redirectTo?: string }) 
   );
 }
 
-/**
- * The same join, inline in the editor's action strip, so a participant can
- * save a name right where they are about to run or submit. The page passes
- * `guestJoin` only in `none` mode; the action refuses in any other mode.
- * Drafts live in localStorage, so the reload after joining keeps the code.
- */
-export function GuestNameInline() {
-  const [name, setName] = useState("");
-  const [failure, setFailure] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+/** Everything the IDE keeps in this browser (drafts, language) starts with this. */
+export const STORAGE_PREFIX = "wit-ide:";
 
+/**
+ * Leaving hands the browser to whoever sits down next, so the drafts and
+ * language choices left in it go too. The form's server action does the rest.
+ */
+export function LeaveButton({ className }: { className?: string }) {
   return (
-    <form
-      className="flex flex-wrap items-center gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        startTransition(async () => {
-          setFailure(null);
-          const here = `${window.location.pathname}${window.location.search}`;
-          const result = await joinAsGuest(name, here);
-          if (result && !result.ok) setFailure(result.error);
-        });
+    <button
+      type="submit"
+      className={className}
+      onClick={() => {
+        try {
+          for (const key of Object.keys(window.localStorage)) {
+            if (key.startsWith(STORAGE_PREFIX)) window.localStorage.removeItem(key);
+          }
+        } catch {
+          // Storage unavailable: nothing was saved in it either.
+        }
       }}
     >
-      <label className="sr-only" htmlFor="wit-guest-name">
-        Your name for the leaderboard
-      </label>
-      <input
-        id="wit-guest-name"
-        required
-        maxLength={40}
-        autoComplete="nickname"
-        value={name}
-        onChange={(event) => setName(event.target.value)}
-        placeholder="Your name to submit"
-        className="w-44 rounded-control bg-ide-panel-2 px-3 py-1.5 text-sm text-ide-ink outline-none placeholder:text-ide-ink-3"
-      />
-      <button
-        type="submit"
-        disabled={pending || name.trim() === ""}
-        className="flex items-center gap-1.5 rounded-control px-2.5 py-1.5 text-sm text-ide-accent-ink transition hover:bg-ide-accent-quiet disabled:opacity-40"
-      >
-        {pending && <Spinner className="h-3.5 w-3.5" />}
-        {pending ? "Saving…" : "Save name"}
-      </button>
-      {failure && (
-        <span role="alert" className="w-full text-xs text-ide-fail">
-          {failure}
-        </span>
-      )}
-    </form>
+      Leave
+    </button>
   );
 }

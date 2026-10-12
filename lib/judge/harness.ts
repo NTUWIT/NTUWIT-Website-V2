@@ -36,10 +36,22 @@ import { CPP as CPP_TYPE, JAVA as JAVA_TYPE } from "@/lib/problems/starter";
  */
 
 /**
- * Where C++ and Java programs receive the test. `execute` replaces it with the
- * test's text as string literals, one test at a time.
+ * Where C++ and Java programs receive their tests. `execute` replaces it with
+ * the batch's text as string literals.
  */
 export const INPUT_MARKER = "/*@@WIT_INPUT@@*/";
+
+/**
+ * One program runs a batch of tests, so C++ and Java compile once per submit
+ * rather than once per test. Tests arrive joined by \x1e, which valid JSON
+ * never contains raw. Each passing case prints `\x1e answer \x1f debug \x1d`
+ * the moment it finishes; the first case that throws exits non-zero, and the
+ * runner reruns it alone to get its own verdict and message.
+ */
+export const CASE_SEP = "\x1e";
+/** Per-case debug output kept in a record, so a batch stays under the output limit. */
+const DEBUG_CAP = 2000;
+const DEBUG_CLIPPED = "(debug output cut short)";
 
 const CPP_READER: Record<ParamType, string> = {
   int: "__rd_int()",
@@ -379,10 +391,10 @@ def __solve():
 ${pythonProvided(sig, classes)}    exec(compile(__SOURCE, "solution.py", "exec"), ns)
 ${pythonBody(sig)}
 
-def __main():
+def __case():
     result, failure = {}, []
-    # Debug prints must not corrupt the answer, so they are captured and sent
-    # to stderr, where the Run view shows them.
+    # Debug prints must not corrupt the answer, so they are captured and
+    # travel in the case's record, where the Run view shows them.
     buf = __io.StringIO()
     def run():
         try:
@@ -390,24 +402,33 @@ def __main():
                 result["text"] = __solve()
         except BaseException:
             failure.append(__traceback.format_exc())
-    # Deep recursion is ordinary in DFS solutions; Python's default of 1,000
-    # frames is not. The call runs on a thread with a large stack to match.
-    __sys.setrecursionlimit(1_000_000)
     try:
-        __threading.stack_size(256 * 1024 * 1024)
         worker = __threading.Thread(target=run)
         worker.start()
         worker.join()
     except (RuntimeError, ValueError, MemoryError):
         run()
-    if buf.getvalue():
-        __sys.stderr.write(buf.getvalue())
     if failure:
+        # The judge reruns this case alone to report it, so the batch stops here.
+        __sys.stderr.write(buf.getvalue())
         __sys.stderr.write(failure[0])
         __sys.exit(1)
-    print(result["text"])
+    __sys.stdout.write("\\x1e" + result["text"] + "\\x1f" + __clip(buf.getvalue()) + "\\x1d")
+    __sys.stdout.flush()
 
-__main()
+def __clip(text):
+    text = text.translate({0x1d: "?", 0x1e: "?", 0x1f: "?"})
+    return text if len(text) <= ${DEBUG_CAP} else text[:${DEBUG_CAP}] + "\\n${DEBUG_CLIPPED}"
+
+# Deep recursion is ordinary in DFS solutions; Python's default of 1,000
+# frames is not. Each call runs on a thread with a large stack to match.
+__sys.setrecursionlimit(1_000_000)
+try:
+    __threading.stack_size(256 * 1024 * 1024)
+except (RuntimeError, ValueError):
+    pass
+for __RAW in __RAW.split("\\x1e"):
+    __case()
 `;
 }
 
@@ -637,12 +658,20 @@ ${provided.bindings}${source}
 ${javascriptBody(sig)}
     })();
     console.log = __log;
-    process.stdout.write(text + "\\n");
-  } finally {
+    let dbg = __debug.join("\\n").replace(/[\\x1d-\\x1f]/g, "?");
+    if (dbg.length > ${DEBUG_CAP}) dbg = dbg.slice(0, ${DEBUG_CAP}) + "\\n${DEBUG_CLIPPED}";
+    process.stdout.write("\\x1e" + text + "\\x1f" + dbg + "\\x1d");
+  } catch (e) {
+    // The judge reruns this case alone to report it, so the batch stops here.
     console.log = __log;
     if (__debug.length) process.stderr.write(__debug.join("\\n") + "\\n");
+    throw e;
   }
 }
+
+const __run = (all) => {
+  for (const c of all.split("\\x1e")) __solve(c);
+};
 
 if (isMainThread) {
   // Read and delete input.json before any participant code loads.
@@ -660,7 +689,7 @@ if (isMainThread) {
   try {
     worker = new Worker(__filename, { workerData: raw, resourceLimits: { stackSizeMb: 256 } });
   } catch {
-    __solve(raw);
+    __run(raw);
   }
   if (worker) {
     worker.on("error", (e) => {
@@ -672,7 +701,7 @@ if (isMainThread) {
     });
   }
 } else {
-  __solve(workerData);
+  __run(workerData);
 }
 `;
 }
@@ -849,6 +878,12 @@ static std::string __ser(TreeNode *r) {
     for (size_t i = 0; i < out.size(); i++) { if (i) o += ","; o += out[i]; }
     return o + "]";
 }
+// One finished case (see CASE_SEP), flushed so a later crash cannot lose it.
+static void __record(const std::string &text, std::string dbg) {
+    for (char &c : dbg) if (c == '\x1d' || c == '\x1e' || c == '\x1f') c = '?';
+    if (dbg.size() > ${DEBUG_CAP}) dbg = dbg.substr(0, ${DEBUG_CAP}) + "\n${DEBUG_CLIPPED}";
+    std::cout << '\x1e' << text << '\x1f' << dbg << '\x1d' << std::flush;
+}
 `;
 
 /** LeetCode's Node, with its reader and writer, for whichever kind the problem uses. */
@@ -983,16 +1018,26 @@ static void __trampoline() { __solve(); }
 int main() {
     // The test is compiled into the program (see INPUT_MARKER): Piston
     // truncates stdin at about 200 KB and compiles every file it is sent.
-    __in = std::string(${INPUT_MARKER});
+    const std::string all = std::string(${INPUT_MARKER});
     const size_t size = 256u << 20;
     void *stack = malloc(size);
-    if (!stack) { __solve(); return 0; }
-    getcontext(&__solve_ctx);
-    __solve_ctx.uc_stack.ss_sp = stack;
-    __solve_ctx.uc_stack.ss_size = size;
-    __solve_ctx.uc_link = &__main_ctx;
-    makecontext(&__solve_ctx, __trampoline, 0);
-    swapcontext(&__main_ctx, &__solve_ctx);
+    for (size_t start = 0;;) {
+        size_t end = all.find('\x1e', start);
+        __in = all.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        __pos = 0;
+        if (!stack) {
+            __solve();
+        } else {
+            getcontext(&__solve_ctx);
+            __solve_ctx.uc_stack.ss_sp = stack;
+            __solve_ctx.uc_stack.ss_size = size;
+            __solve_ctx.uc_link = &__main_ctx;
+            makecontext(&__solve_ctx, __trampoline, 0);
+            swapcontext(&__main_ctx, &__solve_ctx);
+        }
+        if (end == std::string::npos) break;
+        start = end + 1;
+    }
     return 0;
 }
 `;
@@ -1007,8 +1052,7 @@ const cppAnswer = (type: ReturnType, expr: string) => (type === "void" ? `"null"
 function cppSolve(sig: Signature): string {
   const capture = `    std::ostringstream __dbg;
     std::streambuf *__old = std::cout.rdbuf(__dbg.rdbuf());`;
-  const release = `    std::cout.rdbuf(__old);
-    if (!__dbg.str().empty()) std::cerr << __dbg.str();`;
+  const release = `    std::cout.rdbuf(__old);`;
 
   if (!isDesign(sig)) {
     const call = `${camel(sig.name)}(${sig.params.map((_, i) => `__a${i}`).join(", ")})`;
@@ -1024,7 +1068,7 @@ ${capture}
 ${invoke}
     std::string __text = ${answer};
 ${release}
-    std::cout << __text << std::endl;
+    __record(__text, __dbg.str());
 }
 `;
   }
@@ -1059,7 +1103,7 @@ ${branches}
 ${release}
     std::string __text = "[";
     for (size_t __i = 0; __i < __out.size(); __i++) { if (__i) __text += ","; __text += __out[__i]; }
-    std::cout << __text << "]" << std::endl;
+    __record(__text + "]", __dbg.str());
 }
 `;
 }
@@ -1457,7 +1501,7 @@ ${javaSolve(sig)}
     public static void main(String[] args) throws Exception {
         // The test is compiled into the program (see INPUT_MARKER): Piston
         // truncates stdin at about 200 KB and compiles every file it is sent.
-        in = String.join("", new String[] { ${INPUT_MARKER} });
+        String all = String.join("", new String[] { ${INPUT_MARKER} });
         // The container's default charset is not UTF-8, so answers and debug
         // output both go through streams that are explicitly UTF-8. Without
         // this every non-ASCII character is written as '?'.
@@ -1468,24 +1512,33 @@ ${javaSolve(sig)}
         // Debug output printed by the solution must not corrupt the answer.
         java.io.ByteArrayOutputStream dbg = new java.io.ByteArrayOutputStream();
         System.setOut(new java.io.PrintStream(dbg, true, "UTF-8"));
-        // The call runs on a thread with a 256 MB stack: the JVM's default
-        // overflows on the deep recursion ordinary DFS solutions reach.
-        final String[] text = new String[1];
-        final Throwable[] failure = new Throwable[1];
-        Thread worker = new Thread(null, () -> {
-            try { text[0] = solve(); } catch (Throwable e) { failure[0] = e; }
-        }, "solve", 256L << 20);
-        worker.start();
-        worker.join();
-        System.setOut(out);
-        if (dbg.size() > 0) err.print(dbg.toString("UTF-8"));
-        if (failure[0] != null) {
-            failure[0].printStackTrace(err);
-            err.flush();
-            System.exit(1);
+        for (String test : all.split(String.valueOf((char) 0x1e), -1)) {
+            in = test;
+            pos = 0;
+            dbg.reset();
+            // The call runs on a thread with a 256 MB stack: the JVM's default
+            // overflows on the deep recursion ordinary DFS solutions reach.
+            final String[] text = new String[1];
+            final Throwable[] failure = new Throwable[1];
+            Thread worker = new Thread(null, () -> {
+                try { text[0] = solve(); } catch (Throwable e) { failure[0] = e; }
+            }, "solve", 256L << 20);
+            worker.start();
+            worker.join();
+            String debug = dbg.toString("UTF-8");
+            if (failure[0] != null) {
+                // The judge reruns this case alone to report it, so the batch stops here.
+                err.print(debug);
+                failure[0].printStackTrace(err);
+                err.flush();
+                System.exit(1);
+            }
+            debug = debug.replaceAll("[\\\\x1d-\\\\x1f]", "?");
+            if (debug.length() > ${DEBUG_CAP}) debug = debug.substring(0, ${DEBUG_CAP}) + "\\n${DEBUG_CLIPPED}";
+            // One finished case (see CASE_SEP), flushed so a later crash cannot lose it.
+            out.print((char) 0x1e + text[0] + (char) 0x1f + debug + (char) 0x1d);
+            out.flush();
         }
-        out.println(text[0]);
-        out.flush();
     }
 }
 

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { ChevronIcon } from "./icons";
+import { CheckIcon, ChevronIcon } from "./icons";
+import { useSolved } from "./visualization-workspace";
 
 type Entry = { id: string; slug: string; title: string; points: number };
 
@@ -69,5 +70,84 @@ export function ProblemList({ entries, currentSlug }: { entries: Entry[]; curren
         )}
       </ul>
     </nav>
+  );
+}
+
+type Neighbour = { slug: string; title: string } | null;
+
+const STEP =
+  "flex items-center gap-1.5 rounded-control bg-ide-panel-2 px-3 py-1.5 text-sm font-medium text-ide-ink transition hover:bg-ide-panel-3";
+
+/** Previous and next, by the set's order, at the top of the problem. */
+export function ProblemNav({ index, count, prev, next }: { index: number; count: number; prev: Neighbour; next: Neighbour }) {
+  return (
+    <nav aria-label="Problem navigation" className="flex items-center justify-between gap-3 border-b border-ide-hairline px-3 py-2.5 sm:px-5">
+      {prev ? (
+        <Link href={`/ide?problem=${prev.slug}`} className={STEP} title={prev.title}>
+          <ChevronIcon className="h-3.5 w-3.5 rotate-180" />
+          Previous
+        </Link>
+      ) : (
+        <span aria-disabled className={`${STEP} pointer-events-none opacity-40`}>
+          <ChevronIcon className="h-3.5 w-3.5 rotate-180" />
+          Previous
+        </span>
+      )}
+      <span className="tnum text-sm text-ide-ink-2">
+        Problem {index + 1} of {count}
+      </span>
+      {next ? (
+        <Link href={`/ide?problem=${next.slug}`} className={STEP} title={next.title}>
+          Next
+          <ChevronIcon className="h-3.5 w-3.5" />
+        </Link>
+      ) : (
+        <span aria-disabled className={`${STEP} pointer-events-none opacity-40`}>
+          Next
+          <ChevronIcon className="h-3.5 w-3.5" />
+        </span>
+      )}
+    </nav>
+  );
+}
+
+/**
+ * The problem, or, right after an accepted submit, a plain "you solved it"
+ * in its place with the way on to the next one.
+ */
+export function StatementPane({ problemId, next, children }: { problemId: string; next: Neighbour; children: React.ReactNode }) {
+  const [solved, setSolved] = useSolved();
+  if (solved?.problemId !== problemId) return children;
+
+  return (
+    <div role="status" className="settle flex flex-1 flex-col items-center justify-center gap-5 px-6 py-12 text-center">
+      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-ide-pass-quiet text-ide-pass">
+        <CheckIcon className="h-8 w-8" />
+      </span>
+      <div>
+        <h2 className="font-ide-display text-3xl font-semibold tracking-tight">Solution accepted</h2>
+        <p className="tnum mt-2 text-ide-ink-2">
+          All {solved.total} tests passed · {solved.score} points
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {next && (
+          <Link
+            href={`/ide?problem=${next.slug}`}
+            className="flex items-center gap-2 rounded-control bg-ide-accent px-4 py-2.5 text-sm font-semibold text-ide-on-accent transition hover:brightness-105"
+          >
+            Next problem
+            <ChevronIcon className="h-3.5 w-3.5" />
+          </Link>
+        )}
+        <button
+          type="button"
+          onClick={() => setSolved(null)}
+          className="rounded-control px-4 py-2.5 text-sm font-medium text-ide-ink-2 transition hover:bg-ide-panel-2 hover:text-ide-ink"
+        >
+          View problem again
+        </button>
+      </div>
+    </div>
   );
 }

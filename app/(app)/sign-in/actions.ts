@@ -41,7 +41,7 @@ export async function joinAsGuest(name: string, redirectTo: string): Promise<Joi
   const value = signGuest(id, process.env.GUEST_COOKIE_SECRET);
   if (!value) {
     console.error("joinAsGuest: GUEST_COOKIE_SECRET is missing or shorter than 32 bytes");
-    return { ok: false, error: "Guest access is not set up on the server. Tell an organiser." };
+    return { ok: false, error: "Couldn't join right now. Try again in a moment." };
   }
 
   try {

@@ -205,11 +205,10 @@ const CASES: Case[] = [
     },
   },
   {
-    capability: "Printing past the judge's output limit is a runtime error, not a time limit",
+    capability: "Debug output past the judge's output limit is cut short, and the answer still counts",
     signature: { name: "noisy", params: [{ name: "n", type: "int" }], returns: "int" },
     tests: [{ stdin: "[1]", expectedStdout: "1" }],
-    verdict: "runtime_error",
-    stderrIncludes: "printed more than the judge accepts",
+    stderrIncludes: "debug output cut short",
     solutions: {
       python: `def noisy(n):\n    print("x" * 100000)\n    return n\n`,
       javascript: `function noisy(n) {\n  console.log("x".repeat(100000));\n  return n;\n}\n`,

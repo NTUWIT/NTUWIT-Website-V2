@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import {
   BeakerIcon,
@@ -28,9 +28,9 @@ import {
   TONE,
   type Tone,
 } from "@/components/ide/primitives";
-import { GuestNameInline } from "@/components/ide/GuestJoinForm";
 import { useTheme } from "@/components/ide/theme";
-import { useVisualizationDock } from "@/components/ide/visualization-workspace";
+import { STORAGE_PREFIX } from "@/components/ide/GuestJoinForm";
+import { useSolved, useVisualizationDock } from "@/components/ide/visualization-workspace";
 import { VisualizationPanel, type VisualizationSnapshot } from "@/components/ide/visualization";
 import { buildVisualization, type VisualizationSignature } from "@/lib/visualization/python-tutor";
 
@@ -114,7 +114,7 @@ const MONACO_THEMES = {
     base: "vs",
     inherit: true,
     rules: [
-      { token: "comment", foreground: "9a8e93", fontStyle: "italic" },
+      { token: "comment", foreground: "766a71", fontStyle: "italic" },
       { token: "keyword", foreground: "c9346f" },
       { token: "string", foreground: "0f7a5c" },
       { token: "number", foreground: "8f6208" },
@@ -125,11 +125,11 @@ const MONACO_THEMES = {
     colors: {
       "editor.background": "#fbf8f9",
       "editor.foreground": "#191416",
-      "editorLineNumber.foreground": "#c8bec3",
-      "editorLineNumber.activeForeground": "#675c61",
+      "editorLineNumber.foreground": "#766a71",
+      "editorLineNumber.activeForeground": "#191416",
       "editor.lineHighlightBackground": "#f5f1f3",
       "editor.lineHighlightBorder": "#00000000",
-      "editor.selectionBackground": "#fbeef4",
+      "editor.selectionBackground": "#f2c6da",
       "editorCursor.foreground": "#c9346f",
       "editorIndentGuide.background1": "#ede7ea",
       "editorGutter.background": "#fbf8f9",
@@ -144,22 +144,22 @@ const MONACO_THEMES = {
     base: "vs-dark",
     inherit: true,
     rules: [
-      { token: "comment", foreground: "786f75", fontStyle: "italic" },
+      { token: "comment", foreground: "8f858c", fontStyle: "italic" },
       { token: "keyword", foreground: "e2669e" },
       { token: "string", foreground: "4fcda4" },
       { token: "number", foreground: "e0ab4b" },
       { token: "type", foreground: "7fa8ef" },
       { token: "identifier", foreground: "f4f1f3" },
-      { token: "delimiter", foreground: "aaa2a7" },
+      { token: "delimiter", foreground: "bdb6ba" },
     ],
     colors: {
       "editor.background": "#111014",
       "editor.foreground": "#f4f1f3",
-      "editorLineNumber.foreground": "#453f47",
-      "editorLineNumber.activeForeground": "#aaa2a7",
+      "editorLineNumber.foreground": "#8f858c",
+      "editorLineNumber.activeForeground": "#f4f1f3",
       "editor.lineHighlightBackground": "#1a181c",
       "editor.lineHighlightBorder": "#00000000",
-      "editor.selectionBackground": "#2e1a24",
+      "editor.selectionBackground": "#5a2a44",
       "editorCursor.foreground": "#e2669e",
       "editorIndentGuide.background1": "#211f24",
       "editorGutter.background": "#111014",
@@ -208,8 +208,8 @@ type SubmitTest = { index: number; passed: boolean; verdict: string; isSample: b
 
 const ERROR_TEXT: Record<string, { title: string; body: string }> = {
   UNAUTHENTICATED: {
-    title: "Sign in first",
-    body: "Running and submitting need an account so your work is saved to you.",
+    title: "Enter your name first",
+    body: "Reload the page to enter your name. Your code is kept in this browser.",
   },
   INVALID: {
     title: "That input wasn't readable",
@@ -233,7 +233,7 @@ const ERROR_TEXT: Record<string, { title: string; body: string }> = {
   },
   INTERNAL: {
     title: "Something went wrong",
-    body: "Try again. If it keeps happening, tell an organiser.",
+    body: "Try again in a moment. Your code is kept in this browser.",
   },
 };
 
@@ -247,17 +247,53 @@ const fingerprint = (value: string): string => {
   return (h >>> 0).toString(36);
 };
 
+const DRAFT_PREFIX = `${STORAGE_PREFIX}draft:`;
+const LANGUAGE_KEY = `${STORAGE_PREFIX}lang`;
+/** A draft untouched this long belongs to an event that is over. */
+const DRAFT_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+
 const draftKey = (problemId: string, language: Language, starter: string) =>
-  `wit-ide:draft:${problemId}:${language}:${fingerprint(starter)}`;
+  `${DRAFT_PREFIX}${problemId}:${language}:${fingerprint(starter)}`;
+
+/** Drafts are `{ s: source, t: savedAt }`; a bare string is one saved before that. */
+const parseDraft = (raw: string | null): { s: string; t: number } | null => {
+  if (raw === null) return null;
+  try {
+    const value = JSON.parse(raw);
+    if (typeof value?.s === "string" && typeof value?.t === "number") return value;
+  } catch {}
+  return { s: raw, t: Date.now() };
+};
 
 const readDraft = (problemId: string, language: Language, starter: string): string | null => {
   if (typeof window === "undefined") return null;
   try {
-    return window.localStorage.getItem(draftKey(problemId, language, starter));
+    return parseDraft(window.localStorage.getItem(draftKey(problemId, language, starter)))?.s ?? null;
   } catch {
     return null;
   }
 };
+
+/**
+ * Drops drafts nobody can reach any more: old ones, and this problem's drafts
+ * for starter code that has since changed (their key's fingerprint is stale).
+ */
+const pruneDrafts = (problemId: string, current: Set<string>) => {
+  try {
+    const store = window.localStorage;
+    for (const key of Object.keys(store)) {
+      if (!key.startsWith(DRAFT_PREFIX)) continue;
+      const stale = key.startsWith(`${DRAFT_PREFIX}${problemId}:`) && !current.has(key);
+      const draft = parseDraft(store.getItem(key));
+      if (stale || !draft || Date.now() - draft.t > DRAFT_TTL_MS) store.removeItem(key);
+    }
+  } catch {
+    // Storage unavailable. Drafts are a convenience.
+  }
+};
+
+const isLanguage = (value: unknown): value is Language =>
+  typeof value === "string" && (LANGUAGES as readonly string[]).includes(value);
 
 export type PastSubmission = {
   id: string;
@@ -279,14 +315,40 @@ type EditorProps = {
   /** How many tests Submit runs that the participant cannot see. */
   hiddenCount: number;
   history: PastSubmission[];
-  signedIn: boolean;
-  /** Auth is disabled (mode `none`) and nobody is signed in: offer a name field
-   *  instead of a sign-in link. Never true in `invite` mode. */
-  guestJoin: boolean;
 };
 
+const noSubscribe = () => () => {};
+
+/** The language this problem was last worked in, else the last one used anywhere. */
+const savedLanguage = (problemId: string): Language | null => {
+  try {
+    const saved = window.localStorage.getItem(`${LANGUAGE_KEY}:${problemId}`) ?? window.localStorage.getItem(LANGUAGE_KEY);
+    return isLanguage(saved) ? saved : null;
+  } catch {
+    return null;
+  }
+};
+
+/** Keyed by problem in the page, so a choice made on one problem starts fresh on the next. */
 export function Editor(props: EditorProps) {
-  const [language, setLanguage] = useState<Language>("python");
+  const { problemId, starterCode } = props;
+  // The server render cannot see localStorage, so it renders Python and the
+  // client switches to the saved language straight after hydrating.
+  const saved = useSyncExternalStore(noSubscribe, () => savedLanguage(problemId), () => null);
+  const [chosen, setChosen] = useState<Language | null>(null);
+  const language = chosen ?? saved ?? "python";
+
+  useEffect(() => {
+    pruneDrafts(problemId, new Set(LANGUAGES.map((l) => draftKey(problemId, l, starterCode[l] ?? ""))));
+  }, [problemId, starterCode]);
+
+  const onLanguageChange = (next: Language) => {
+    setChosen(next);
+    try {
+      window.localStorage.setItem(`${LANGUAGE_KEY}:${problemId}`, next);
+      window.localStorage.setItem(LANGUAGE_KEY, next);
+    } catch {}
+  };
   // Remounting on problem/language is what loads the right draft: source is
   // seeded once per pair rather than synced back in an effect.
   return (
@@ -294,7 +356,7 @@ export function Editor(props: EditorProps) {
       key={`${props.problemId}:${language}`}
       {...props}
       language={language}
-      onLanguageChange={setLanguage}
+      onLanguageChange={onLanguageChange}
     />
   );
 }
@@ -308,8 +370,6 @@ function EditorPane({
   samples,
   hiddenCount,
   history,
-  signedIn,
-  guestJoin,
   language,
   onLanguageChange,
 }: EditorProps & {
@@ -327,6 +387,7 @@ function EditorPane({
   const router = useRouter();
   const theme = useTheme();
   const visualizationDock = useVisualizationDock();
+  const [, setSolved] = useSolved();
   const [visualizationOpen, setVisualizationOpen] = useState(false);
   const [visualization, setVisualization] = useState<VisualizationSnapshot | null>(null);
   const [visualizationError, setVisualizationError] = useState<string | null>(null);
@@ -353,7 +414,7 @@ function EditorPane({
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       try {
-        window.localStorage.setItem(draftKey(problemId, language, starter), source);
+        window.localStorage.setItem(draftKey(problemId, language, starter), JSON.stringify({ s: source, t: Date.now() }));
       } catch {
         // Storage unavailable (private mode, quota). Drafts are a convenience.
       }
@@ -377,8 +438,12 @@ function EditorPane({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ problemId, language, source, ...extra }),
+        // The routes answer within their 60s maxDuration; past that something
+        // between here and the judge dropped the request.
+        signal: AbortSignal.timeout(75_000),
       });
-      return response.json();
+      // A platform timeout answers with an HTML page, not our JSON.
+      return response.json().catch(() => ({ ok: false, error: "JUDGE_UNAVAILABLE" }));
     },
     [problemId, language, source],
   );
@@ -393,7 +458,7 @@ function EditorPane({
       const extra = customArgs.trim() ? { customArgs } : undefined;
       setRunResult((await post("/api/run", extra)) as RunResponse);
     } catch {
-      setRunResult({ ok: false, error: "INTERNAL" });
+      setRunResult({ ok: false, error: "JUDGE_UNAVAILABLE" });
     } finally {
       setBusy(null);
     }
@@ -410,11 +475,13 @@ function EditorPane({
     setRunResult(null);
     setTab("result");
     try {
-      setSubmitResult((await post("/api/submit")) as SubmitResponse);
+      const result = (await post("/api/submit")) as SubmitResponse;
+      setSubmitResult(result);
+      if (result.ok && result.verdict === "accepted") setSolved({ problemId, score: result.score, total: result.totalCount });
       // The new row is rendered on the server; refresh so History includes it.
       router.refresh();
     } catch {
-      setSubmitResult({ ok: false, error: "INTERNAL" });
+      setSubmitResult({ ok: false, error: "JUDGE_UNAVAILABLE" });
     } finally {
       setBusy(null);
     }
@@ -429,7 +496,7 @@ function EditorPane({
     }
   };
 
-  const disabled = busy !== null || !signedIn;
+  const disabled = busy !== null;
   const argsExample = samples[0]?.stdin ?? "[]";
 
   return (
@@ -469,17 +536,6 @@ function EditorPane({
           <ResetIcon className="h-3.5 w-3.5" />
           Reset
         </button>
-
-        {!signedIn && guestJoin && <GuestNameInline />}
-
-        {!signedIn && !guestJoin && (
-          <a
-            href="/sign-in?next=/ide"
-            className="rounded-control px-2.5 py-2 text-sm text-ide-accent-ink transition hover:bg-ide-accent-quiet"
-          >
-            Sign in to run or submit
-          </a>
-        )}
 
         {/* One width for all three, so the strip reads as one row of equals and
             never reflows as a label changes. They are the shared primitives,
@@ -607,7 +663,7 @@ function EditorPane({
           {tab === "custom" ? (
             <CustomInput value={customArgs} onChange={setCustomArgs} example={argsExample} />
           ) : tab === "history" ? (
-            <History entries={history} onRestore={setSource} signedIn={signedIn} guestJoin={guestJoin} />
+            <History entries={history} onRestore={setSource} />
           ) : (
             <Results run={runResult} submit={submitResult} busy={busy} hiddenCount={hiddenCount} />
           )}
@@ -976,22 +1032,10 @@ function Failure({ code }: { code: string }) {
 function History({
   entries,
   onRestore,
-  signedIn,
-  guestJoin,
 }: {
   entries: PastSubmission[];
   onRestore: (source: string) => void;
-  signedIn: boolean;
-  guestJoin: boolean;
 }) {
-  if (!signedIn) {
-    return (
-      <Placeholder title={guestJoin ? "Save your name to keep your submissions" : "Sign in to keep your submissions"}>
-        Every submission is saved, so you can look back at what you tried and pick
-        any of it up again.
-      </Placeholder>
-    );
-  }
   if (entries.length === 0) {
     return (
       <Placeholder title="No submissions yet">

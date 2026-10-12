@@ -4,8 +4,28 @@
  * in the browser as it is typed.
  */
 
-/** Judge-side wall clock per execution. Kept under Vercel's function ceiling. */
-export const REQUEST_TIMEOUT_MS = 8_000;
+/**
+ * Wall clock per execution: Piston's compile timeout (10s) plus a batch's run
+ * (MAX_RUN_TIMEOUT_MS) plus queueing. At 8s a C++ or Java call that compiled
+ * and then ran was cut off mid-run and reported as an unreachable judge.
+ */
+export const REQUEST_TIMEOUT_MS = 20_000;
+
+/**
+ * The longest run Piston accepts, its PISTON_RUN_TIMEOUT. A batch of tests
+ * shares this budget. Must match infra/piston/compose.yml on the droplet.
+ */
+export const MAX_RUN_TIMEOUT_MS = 6_000;
+
+/** Tests per execution. More saves compiles; fewer loses less to one slow case. */
+export const MAX_BATCH = 25;
+
+/**
+ * Time a request may spend starting executions. Kept so that one more
+ * execution (REQUEST_TIMEOUT_MS) still ends inside the routes' 60s maxDuration,
+ * so a participant always gets an answer instead of a spinner.
+ */
+export const JUDGE_BUDGET_MS = 38_000;
 
 /**
  * Piston kills a run once its output reaches this many bytes and reports it as

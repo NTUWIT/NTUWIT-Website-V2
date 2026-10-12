@@ -66,6 +66,7 @@ const pistonResponse = z.object({
       stdout: z.string(),
       stderr: z.string(),
       code: z.number().nullable(),
+      signal: z.string().nullable().optional(),
     })
     .optional(),
 });
@@ -137,6 +138,11 @@ export async function execute(args: {
   if (!parsed.success) throw new JudgeError("unrecognised judge response");
 
   const { run, compile } = parsed.data;
+
+  // A compiler killed at Piston's compile timeout says nothing about the
+  // code: the judge was too busy. Reported as a compile error it would send
+  // a participant hunting for a mistake that is not there.
+  if (compile?.signal) throw new JudgeError("compile timed out");
 
   // Most languages report a failed build as a `compile` stage. Java's Piston
   // package compiles inside the run step instead, so a javac failure arrives

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Show } from "@clerk/nextjs";
 
 import { AccountMenu } from "@/components/ide/AccountMenu";
+import { LeaveButton } from "@/components/ide/GuestJoinForm";
 
 import { EventTimer } from "@/components/ide/event-timer";
 import { ThemeToggle } from "@/components/ide/theme";
@@ -9,8 +10,8 @@ import { leaveGuest } from "@/app/(app)/sign-in/actions";
 import { currentGuestName } from "@/lib/auth";
 import { getEventEndsAt } from "@/lib/db/queries";
 
-// The event clock is read per request so starting or stopping a session takes
-// effect for everyone on their next page load, with no redeploy.
+// The event clock is read per request for the first paint; EventTimer then
+// polls it, so a change reaches open tabs without a reload.
 export const dynamic = "force-dynamic";
 
 /**
@@ -24,7 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     // A fixed height, not a minimum: with min-h-screen a long statement grew the
     // whole page and stretched the editor with it, so neither pane scrolled.
     <div className="ide-surface flex h-dvh flex-col">
-      <header className="flex h-13 shrink-0 items-center justify-between gap-4 px-4">
+      <header className="relative flex h-13 shrink-0 items-center justify-between gap-4 px-4">
         <nav className="flex items-center gap-1">
           <Link href="/" className="flex items-center gap-2.5 px-1 py-1" aria-label="Back to the main site">
             <img src="/wit-logo.png" alt="" className="h-5 w-5 object-contain" />
@@ -38,8 +39,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
         </nav>
 
-        <div className="flex items-center gap-1.5">
+        {/* Centred on wide screens, where it is read from across the room;
+            in the row with everything else where space is short. */}
+        <div className="md:absolute md:left-1/2 md:-translate-x-1/2">
           <EventTimer endsAt={endsAt ? endsAt.toISOString() : null} />
+        </div>
+
+        <div className="flex items-center gap-1.5">
           <ThemeToggle />
           {guestName ? (
             // A guest (auth mode `none`) has no Clerk session, so Clerk's
@@ -53,12 +59,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               >
                 Sign in
               </Link>
-              <button
-                type="submit"
-                className="rounded-control px-2.5 py-2 text-ide-ink-3 transition hover:bg-ide-panel-2 hover:text-ide-ink"
-              >
-                Leave
-              </button>
+              <LeaveButton className="rounded-control px-2.5 py-2 text-ide-ink-3 transition hover:bg-ide-panel-2 hover:text-ide-ink" />
             </form>
           ) : (
             <>

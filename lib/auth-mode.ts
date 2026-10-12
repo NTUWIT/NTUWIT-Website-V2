@@ -1,15 +1,14 @@
 /**
  * Who may act as a participant, as pure functions of their inputs.
  *
- * `invite` is the normal state: Clerk accounts only. `none` is the last resort
- * for a night when invite emails do not arrive: a participant picks a display
- * name and acts as a signed guest. Admin access is never decided here; it
- * always requires Clerk.
+ * `none` is the normal state: a participant enters a display name and acts as
+ * a signed guest, no account. `invite` (Clerk accounts only) is opt-in.
+ * Admin access is never decided here; it always requires Clerk.
  *
  * The mode comes from the AUTH_MODE_OVERRIDE env var alone (set in Vercel,
  * then redeploy). Kept free of imports, like lib/session.ts, so every rule is
- * asserted directly by scripts/check-auth-mode.ts. Every unclear input
- * resolves to `invite`.
+ * asserted directly by scripts/check-auth-mode.ts. Unset means `none`; a value
+ * that is set but unclear resolves to `invite`, the closed side.
  */
 export const AUTH_MODES = ["invite", "none"] as const;
 
@@ -25,8 +24,8 @@ export function parseAuthMode(raw: unknown): AuthMode | null {
 export type ResolvedAuthMode = { mode: AuthMode; warning?: string };
 
 /**
- * The mode is set only by the AUTH_MODE_OVERRIDE env var in Vercel. Unset,
- * empty, or anything but an exact mode resolves to `invite`.
+ * The mode is set only by the AUTH_MODE_OVERRIDE env var in Vercel. Unset or
+ * empty is `none`. A typo resolves to `invite`: someone meant to set it.
  */
 export function resolveAuthMode(envValue: string | undefined): ResolvedAuthMode {
   const mode = parseAuthMode(envValue);
@@ -36,7 +35,7 @@ export function resolveAuthMode(envValue: string | undefined): ResolvedAuthMode 
         mode: "invite",
         warning: `Ignoring invalid AUTH_MODE_OVERRIDE ${JSON.stringify(envValue)}; expected one of ${AUTH_MODES.join(", ")}. Using invite.`,
       }
-    : { mode: "invite" };
+    : { mode: "none" };
 }
 
 /** `guest_` plus a lowercase v4 uuid. Clerk ids start `user_`, so they never collide. */

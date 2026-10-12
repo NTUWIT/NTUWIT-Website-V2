@@ -10,8 +10,8 @@ import { isSessionOpen } from "@/lib/session";
 import { withinLimit } from "@/lib/ratelimit";
 import { parseBody } from "@/lib/validation";
 
-// Samples only (2-3 tests), but java still costs ~1.85s each.
-export const maxDuration = 30;
+// Samples only, one compile, but a crashing case is rerun alone (runner.ts).
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   // Authenticate, validate, rate limit, delegate, serialise. No logic here.

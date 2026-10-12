@@ -113,3 +113,54 @@ for (const crossing of [...new Set(crossings)]) console.error(`  ${crossing}`);
 assert.equal(crossings.length, 0, `${crossings.length} cross-world token use(s)`);
 
 console.log("check-tokens: no marketing token used inside the IDE or console");
+
+/* ---------- contrast: every text-on-surface pairing the IDE uses reads at WCAG AA ---------- */
+
+const ideCss = readFileSync("styles/ide.css", "utf8");
+const block = (selector: string) => {
+  const start = ideCss.indexOf(selector);
+  assert.ok(start >= 0, `styles/ide.css has no ${selector} block`);
+  const body = ideCss.slice(ideCss.indexOf("{", start) + 1, ideCss.indexOf("}", start));
+  return Object.fromEntries([...body.matchAll(/--ide-([a-z0-9-]+):\s*(#[0-9a-f]{6})\b/gi)].map((m) => [m[1]!, m[2]!]));
+};
+const themes = {
+  light: block(":root {"),
+  dark: block(':root[data-theme="dark"]'),
+  "dark (system)": block(':root:not([data-theme="light"])'),
+};
+assert.deepEqual(themes["dark (system)"], themes.dark, "the system-dark and pinned-dark palettes must match");
+
+const luminance = (hex: string) => {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+};
+const contrast = (a: string, b: string) => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi! + 0.05) / (lo! + 0.05);
+};
+
+const SURFACES = ["ground", "panel", "panel-2", "panel-3"];
+const PAIRS: [string, string][] = [
+  ...["ink", "ink-2", "ink-3", "accent-ink"].flatMap((ink) => SURFACES.map((s): [string, string] => [ink, s])),
+  ["accent-ink", "accent-quiet"],
+  ["on-accent", "accent"],
+  ...["pass", "warn", "fail", "info"].flatMap((tone): [string, string][] => [
+    [tone, `${tone}-quiet`],
+    [tone, "panel"],
+  ]),
+];
+
+const weak: string[] = [];
+for (const [name, palette] of Object.entries(themes)) {
+  for (const [fg, bg] of PAIRS) {
+    const ratio = contrast(palette[fg]!, palette[bg]!);
+    if (ratio < 4.5) weak.push(`${name}: ${fg} on ${bg} is ${ratio.toFixed(2)}:1`);
+  }
+}
+for (const line of weak) console.error(`  ${line}`);
+assert.equal(weak.length, 0, `${weak.length} pairing(s) under 4.5:1`);
+
+console.log(`check-tokens: ${PAIRS.length} text pairings reach 4.5:1 in light and dark`);

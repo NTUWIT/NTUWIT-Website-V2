@@ -44,16 +44,16 @@ for (const raw of [
   assert.equal(parseAuthMode(raw), null, `parseAuthMode(${JSON.stringify(raw)}) must be null`);
 }
 
-/* ---------- resolveAuthMode: env var only, fail closed ---------- */
+/* ---------- resolveAuthMode: env var only, a typo fails closed ---------- */
 
 const r = resolveAuthMode;
 
 assert.deepEqual(r("none"), { mode: "none" }, "AUTH_MODE_OVERRIDE=none disables auth");
 assert.deepEqual(r("invite"), { mode: "invite" });
 
-// Unset or empty is the normal state: invite, no warning.
-assert.deepEqual(r(undefined), { mode: "invite" });
-assert.deepEqual(r(""), { mode: "invite" });
+// Unset or empty is the normal state: no auth, no warning.
+assert.deepEqual(r(undefined), { mode: "none" });
+assert.deepEqual(r(""), { mode: "none" });
 
 // Anything else is a typo: invite, with a warning naming the variable. A
 // near-miss must never open the doors.

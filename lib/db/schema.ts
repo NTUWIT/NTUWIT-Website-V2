@@ -36,7 +36,7 @@ export const problems = pgTable(
     difficulty: text("difficulty").notNull(),
     statementMd: text("statement_md").notNull(),
     // 5000ms, not 3000: Java spends roughly 2.7s of the budget starting the JVM
-    // before a participant's code runs. Must stay under REQUEST_TIMEOUT_MS.
+    // before a participant's code runs. Must stay at or under MAX_RUN_TIMEOUT_MS.
     timeLimitMs: integer("time_limit_ms").notNull().default(5000),
     memoryLimitKb: integer("memory_limit_kb").notNull().default(131072),
     // Starter code keyed by language; a missing language falls back to an empty editor.

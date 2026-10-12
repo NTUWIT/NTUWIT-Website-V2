@@ -4,8 +4,8 @@ import { JudgeError } from "@/lib/errors";
 import type { Language } from "@/lib/languages";
 import type { Signature } from "@/lib/problems/signature";
 import { execute, type ExecResult } from "./piston";
-import { wrapSource } from "./harness";
-import { MAX_OUTPUT_BYTES, MAX_STDIN_BYTES } from "./limits";
+import { CASE_SEP, wrapSource } from "./harness";
+import { JUDGE_BUDGET_MS, MAX_BATCH, MAX_OUTPUT_BYTES, MAX_RUN_TIMEOUT_MS, MAX_STDIN_BYTES } from "./limits";
 import { matchOptions, outputMatches, type MatchOptions } from "./normalise";
 import { parseJson } from "@/lib/problems/validate";
 
@@ -97,6 +97,12 @@ print(json.dumps(verdicts))
 
 type CheckCase = { args: unknown; expected: unknown; actual: unknown };
 
+/** One finished case in a batch's output (see CASE_SEP). */
+const RECORD = /\x1e([^\x1d-\x1f]*)\x1f([^\x1d-\x1f]*)\x1d/g;
+
+/** A test the request ran out of time to reach. */
+const TIMED_OUT: ExecResult = { stdout: "", stderr: "", exitCode: null, signal: "SIGKILL", compileError: null, message: null };
+
 /**
  * All of a submission's answers go to the checker in as few runs as the
  * judge's input limit allows, usually one, rather than one run per test.
@@ -184,27 +190,12 @@ export async function runTests(
   const toCheck: { run: number; check: CheckCase }[] = [];
   let runtimeMs = 0;
 
-  for (const test of args.tests) {
-    const startedAt = performance.now();
-    let result: ExecResult;
-    try {
-      result = await execute({
-        language: args.language,
-        source,
-        stdin: test.stdin,
-        timeLimitMs: args.timeLimitMs,
-        memoryLimitKb: args.memoryLimitKb,
-      });
-    } catch (error) {
-      if (error instanceof JudgeError) throw error;
-      throw new JudgeError("execution failed");
-    }
-    runtimeMs += Math.round(performance.now() - startedAt);
-
+  // The checker decides a run that finished cleanly. An answer that is not
+  // even valid JSON, or a custom case with no reference answer, cannot be
+  // checked and is wrong.
+  const record = (test: Test, result: ExecResult) => {
     let verdict = classify(result, test.expectedStdout, match);
     if (checker && ranCleanly(result)) {
-      // The checker decides. An answer that is not even valid JSON, or a
-      // custom case with no reference answer, cannot be checked and is wrong.
       const actual = parseJson(result.stdout.trim());
       const expected = parseJson(test.expectedStdout.trim());
       const testArgs = parseJson(test.stdin);
@@ -214,10 +205,70 @@ export async function runTests(
       }
     }
     runs.push({ result, verdict });
+  };
+
+  // Tests run in batches, one program each (see CASE_SEP), so C++ and Java
+  // compile once rather than once per test. A batch that stops early keeps
+  // the cases it finished, and the case it stopped on is rerun alone so its
+  // verdict, time limit and message are exactly those of a single run.
+  const startedAll = performance.now();
+  let next = 0;
+  let alone = false;
+  while (next < args.tests.length) {
+    if (performance.now() - startedAll > JUDGE_BUDGET_MS) {
+      // Out of time for this request: whatever has not run did not finish.
+      while (runs.length < args.tests.length) runs.push({ result: TIMED_OUT, verdict: "time_limit_exceeded" });
+      break;
+    }
+
+    const batch = [args.tests[next]!];
+    let inBytes = batch[0]!.stdin.length;
+    let outBytes = batch[0]!.expectedStdout.length;
+    while (!alone && batch.length < MAX_BATCH && next + batch.length < args.tests.length) {
+      const test = args.tests[next + batch.length]!;
+      inBytes += test.stdin.length + 1;
+      outBytes += test.expectedStdout.length;
+      if (inBytes > MAX_STDIN_BYTES || outBytes > MAX_OUTPUT_BYTES / 4) break;
+      batch.push(test);
+    }
+    alone = false;
+
+    const startedAt = performance.now();
+    let result: ExecResult;
+    try {
+      result = await execute({
+        language: args.language,
+        source,
+        stdin: batch.map((t) => t.stdin).join(CASE_SEP),
+        timeLimitMs: Math.min(args.timeLimitMs * batch.length, Math.max(args.timeLimitMs, MAX_RUN_TIMEOUT_MS)),
+        memoryLimitKb: args.memoryLimitKb,
+      });
+    } catch (error) {
+      if (error instanceof JudgeError) throw error;
+      throw new JudgeError("execution failed");
+    }
+    runtimeMs += Math.round(performance.now() - startedAt);
 
     // The source cannot compile, so every remaining test would fail the same
-    // way. Skipping them keeps a broken submission cheap.
-    if (verdict === "compile_error") break;
+    // way. Stopping here keeps a broken submission cheap.
+    if (result.compileError !== null) {
+      record(batch[0]!, result);
+      break;
+    }
+
+    const records = [...result.stdout.matchAll(RECORD)].slice(0, batch.length);
+    if (batch.length === 1 && records.length === 0) {
+      // Run alone and it still did not finish: the crash, the kill or the
+      // stray output is this test's own.
+      record(batch[0]!, result);
+      next += 1;
+      continue;
+    }
+    records.forEach((r, k) =>
+      record(batch[k]!, { stdout: `${r[1]}\n`, stderr: r[2]!, exitCode: 0, signal: null, compileError: null, message: null }),
+    );
+    next += records.length;
+    if (records.length < batch.length) alone = true;
   }
 
   if (checker && toCheck.length > 0) {
