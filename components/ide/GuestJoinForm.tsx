@@ -18,8 +18,8 @@ export function GuestJoinForm({ redirectTo = "/ide" }: { redirectTo?: string }) 
     <div id="wit-guest-join" className="mx-auto w-full max-w-sm">
       <h1 className="font-ide-display text-3xl font-semibold tracking-tight">Join tonight</h1>
       <p className="mt-2 text-sm leading-relaxed text-ide-ink-2">
-        No account needed. Pick the name to show on the leaderboard, and stay in
-        this browser: your progress is tied to it.
+        Pick the name to show on the leaderboard, and stay in this browser:
+        your progress is tied to it.
       </p>
 
       <form
@@ -64,27 +64,3 @@ export function GuestJoinForm({ redirectTo = "/ide" }: { redirectTo?: string }) 
 
 /** Everything the IDE keeps in this browser (drafts, language) starts with this. */
 export const STORAGE_PREFIX = "wit-ide:";
-
-/**
- * Leaving hands the browser to whoever sits down next, so the drafts and
- * language choices left in it go too. The form's server action does the rest.
- */
-export function LeaveButton({ className }: { className?: string }) {
-  return (
-    <button
-      type="submit"
-      className={className}
-      onClick={() => {
-        try {
-          for (const key of Object.keys(window.localStorage)) {
-            if (key.startsWith(STORAGE_PREFIX)) window.localStorage.removeItem(key);
-          }
-        } catch {
-          // Storage unavailable: nothing was saved in it either.
-        }
-      }}
-    >
-      Leave
-    </button>
-  );
-}

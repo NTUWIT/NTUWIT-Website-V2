@@ -60,17 +60,16 @@ export function showGuestJoin(input: { mode: AuthMode; participantId: string | n
  */
 export function signInView(input: {
   mode: AuthMode;
-  participantId: string | null;
+  clerkUserId: string | null;
+  guestId: string | null;
   redirectTo: string;
 }): "guest" | "account" | "redirect" {
-  const clerkUser = Boolean(input.participantId) && !isGuestId(input.participantId);
   const toAdmin = input.redirectTo === "/admin" || input.redirectTo.startsWith("/admin/");
   if (input.mode === "invite") return "account";
-  // Auth disabled: a Clerk session only opens admin. In the IDE it is nobody,
-  // so a Clerk user picks a name like everyone else.
-  if (clerkUser) return toAdmin ? "redirect" : "guest";
-  if (toAdmin) return "account";
-  return input.participantId ? "account" : "guest";
+  // Auth disabled: the Clerk session is consulted for admin only, the guest
+  // cookie for everything else. A Clerk session never hides a guest's cookie.
+  if (toAdmin) return input.clerkUserId ? "redirect" : "account";
+  return isGuestId(input.guestId) ? "redirect" : "guest";
 }
 
 /**

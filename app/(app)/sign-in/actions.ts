@@ -62,8 +62,3 @@ export async function joinAsGuest(name: string, redirectTo: string): Promise<Joi
   // Same rule as the sign-in page: same-origin paths only.
   redirect(redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "/ide");
 }
-
-export async function leaveGuest() {
-  (await cookies()).delete(GUEST_COOKIE);
-  redirect("/");
-}

@@ -15,7 +15,7 @@ export function readAuthMode(): ResolvedAuthMode {
 }
 
 /**
- * Resolves the acting participant: the Clerk user, or in `none` mode a guest
+ * Resolves the acting participant: the Clerk user in `invite` mode, or in `none` mode a guest
  * whose cookie this server signed. Every protected route handler calls this
  * itself; the proxy is defence in depth, never the only check. A user id
  * supplied by the client is never consulted.
@@ -30,11 +30,9 @@ export async function requireUser(): Promise<string | null> {
     mode === "none"
       ? verifyGuest((await cookies()).get(GUEST_COOKIE)?.value, process.env.GUEST_COOKIE_SECRET)
       : null;
-  const participant = resolveParticipant({ mode, clerkUserId, guestId });
-  // A guest counts only once their name is saved: nobody acts unnamed. A
-  // database outage fails closed too, since run and submit need it anyway.
-  if (participant && !(await getGuestNames([participant]).catch(() => new Map())).has(participant)) return null;
-  return participant;
+  // The signed cookie alone is the session. A guest always has a name: joining
+  // fails unless the name is saved first (see joinAsGuest).
+  return resolveParticipant({ mode, clerkUserId, guestId });
 }
 
 /** The current guest's display name, or null for a Clerk user or nobody. */

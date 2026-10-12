@@ -2,12 +2,10 @@ import Link from "next/link";
 import { Show } from "@clerk/nextjs";
 
 import { AccountMenu } from "@/components/ide/AccountMenu";
-import { LeaveButton } from "@/components/ide/GuestJoinForm";
 
 import { EventTimer } from "@/components/ide/event-timer";
 import { ThemeToggle } from "@/components/ide/theme";
-import { leaveGuest } from "@/app/(app)/sign-in/actions";
-import { currentGuestName } from "@/lib/auth";
+import { currentGuestName, readAuthMode } from "@/lib/auth";
 import { getEventEndsAt } from "@/lib/db/queries";
 
 // The event clock is read per request for the first paint; EventTimer then
@@ -20,6 +18,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const [endsAt, guestName] = await Promise.all([getEventEndsAt(), currentGuestName()]);
+  const { mode } = readAuthMode();
 
   return (
     // A fixed height, not a minimum: with min-h-screen a long statement grew the
@@ -50,18 +49,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {guestName ? (
             // A guest (auth mode `none`) has no Clerk session, so Clerk's
             // signed-in/out switch would offer them "Sign in" forever.
-            <form action={leaveGuest} className="ml-1 flex items-center gap-2 text-sm">
+            // Leaving keeps the guest cookie: coming back resumes as the same name.
+            <div className="ml-1 flex items-center gap-2 text-sm">
               <span className="hidden max-w-32 truncate text-ide-ink-2 sm:block">{guestName}</span>
-              {/* Organisers who joined as a guest still need a real account for admin. */}
               <Link
-                href="/sign-in"
+                href="/"
                 className="rounded-control px-2.5 py-2 text-ide-ink-3 transition hover:bg-ide-panel-2 hover:text-ide-ink"
               >
-                Sign in
+                Leave
               </Link>
-              <LeaveButton className="rounded-control px-2.5 py-2 text-ide-ink-3 transition hover:bg-ide-panel-2 hover:text-ide-ink" />
-            </form>
-          ) : (
+            </div>
+          ) : mode === "none" ? null : (
+            // Auth disabled: the IDE knows nothing about accounts.
             <>
               <Show when="signed-out">
                 <Link

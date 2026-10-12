@@ -109,24 +109,31 @@ for (const participantId of [null, "user_1", GUEST]) {
 
 /* ---------- signInView: admin always goes through a real sign-in ---------- */
 
-const view = (mode: "invite" | "none", participantId: string | null, redirectTo = "/ide") =>
-  signInView({ mode, participantId, redirectTo });
+const CLERK = "user_1";
+const view = (
+  mode: "invite" | "none",
+  { clerk = null, guest = null }: { clerk?: string | null; guest?: string | null },
+  redirectTo = "/ide",
+) => signInView({ mode, clerkUserId: clerk, guestId: guest, redirectTo });
 
-// Invite mode is unchanged: always the account form.
-for (const who of [null, "user_1", GUEST]) {
-  assert.equal(view("invite", who), "account", `invite mode, ${who}`);
-  assert.equal(view("invite", who, "/admin"), "account", `invite mode to admin, ${who}`);
+// Invite mode: always the account form, whoever arrives, wherever they go.
+for (const who of [{}, { clerk: CLERK }, { guest: GUEST }, { clerk: CLERK, guest: GUEST }]) {
+  assert.equal(view("invite", who), "account", `invite mode, ${JSON.stringify(who)}`);
+  assert.equal(view("invite", who, "/admin"), "account", `invite mode to admin, ${JSON.stringify(who)}`);
 }
-// Auth disabled, heading for the IDE: everyone, Clerk users too, enters a name.
-assert.equal(view("none", null), "guest");
-assert.equal(view("none", "user_1"), "guest");
-// A guest who comes back to sign in wants an account, not a second guest name.
-assert.equal(view("none", GUEST), "account");
-// Heading for admin is never the guest form, in any mode, for anyone.
-assert.equal(view("none", null, "/admin"), "account", "admin needs a real sign-in");
-assert.equal(view("none", null, "/admin/problems/new"), "account");
-assert.equal(view("none", GUEST, "/admin"), "account", "a guest is not signed in for admin");
-assert.equal(view("none", "user_1", "/admin"), "redirect");
+// Auth disabled, heading for the IDE: a named guest goes straight back in...
+assert.equal(view("none", { guest: GUEST }), "redirect", "a returning guest is never asked again");
+// ...even when the same browser also holds a Clerk session (an organiser).
+assert.equal(view("none", { clerk: CLERK, guest: GUEST }), "redirect", "Clerk never hides the guest cookie");
+// Nobody yet, or only a Clerk session: pick a name. The IDE ignores accounts.
+assert.equal(view("none", {}), "guest");
+assert.equal(view("none", { clerk: CLERK }), "guest");
+// Heading for admin: only a Clerk session counts, a guest cookie never does.
+assert.equal(view("none", {}, "/admin"), "account", "admin needs a real sign-in");
+assert.equal(view("none", {}, "/admin/problems/new"), "account");
+assert.equal(view("none", { guest: GUEST }, "/admin"), "account", "a guest is not signed in for admin");
+assert.equal(view("none", { clerk: CLERK }, "/admin"), "redirect");
+assert.equal(view("none", { clerk: CLERK, guest: GUEST }, "/admin"), "redirect");
 
 /* ---------- guest cookie signing ---------- */
 

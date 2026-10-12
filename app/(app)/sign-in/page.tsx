@@ -25,24 +25,18 @@ export default async function SignInPage({
 
   // Only the IDE opens up when auth is disabled. Anything headed for /admin
   // gets the account form, and a guest cookie never counts for it.
-  // A Clerk session counts here even with auth disabled: it is how admin signs in.
-  const participantId = (await auth()).userId ?? (await requireUser());
-  const view = signInView({ mode, participantId, redirectTo });
+  const { userId: clerkUserId } = await auth();
+  // In none mode requireUser is the named guest, if any; Clerk never stands in.
+  const guestId = mode === "none" ? await requireUser() : null;
+  const view = signInView({ mode, clerkUserId, guestId, redirectTo });
   if (view === "redirect") redirect(redirectTo);
 
   if (view === "guest") {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-10 px-6 py-16">
+      // Accounts are for admin only, and organisers go to /admin directly, so
+      // participants are never shown one.
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-16">
         <GuestJoinForm redirectTo={redirectTo} />
-        {/* Organisers still sign in with Clerk: admin never accepts a guest. */}
-        <details className="w-full max-w-sm text-sm text-ide-ink-3">
-          <summary className="cursor-pointer select-none hover:text-ide-ink">
-            Have an account? Sign in instead
-          </summary>
-          <div className="mt-6">
-            <SignInForm redirectTo={redirectTo} inviteOnly={false} />
-          </div>
-        </details>
       </div>
     );
   }
