@@ -17,10 +17,6 @@ export function GuestJoinForm({ redirectTo = "/ide" }: { redirectTo?: string }) 
   return (
     <div id="wit-guest-join" className="mx-auto w-full max-w-sm">
       <h1 className="font-ide-display text-3xl font-semibold tracking-tight">Join tonight</h1>
-      <p className="mt-2 text-sm leading-relaxed text-ide-ink-2">
-        Pick the name to show on the leaderboard, and stay in this browser:
-        your progress is tied to it.
-      </p>
 
       <form
         className="mt-6 space-y-4"

@@ -33,9 +33,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const all = await listProblems();
   if (all.length === 0) {
     return (
-      <Empty title="Nothing to solve yet">
-        Problems appear here when the session starts.
-      </Empty>
+      <Empty title="Nothing to solve yet" />
     );
   }
 
@@ -43,9 +41,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const problem = await getProblemBySlug(slug);
   if (!problem) {
     return (
-      <Empty title="Problem not found">
-        That link points at a problem that no longer exists.
-      </Empty>
+      <Empty title="Problem not found" />
     );
   }
 
@@ -183,12 +179,11 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   );
 }
 
-function Empty({ title, children }: { title: string; children: React.ReactNode }) {
+function Empty({ title }: { title: string }) {
   return (
     <div className="flex flex-1 items-center justify-center p-8">
       <div className="max-w-sm rounded-panel bg-ide-panel px-8 py-7 text-center shadow-ide-panel">
         <h1 className="font-ide-display text-xl font-semibold">{title}</h1>
-        <p className="mt-1.5 text-sm text-ide-ink-2">{children}</p>
       </div>
     </div>
   );

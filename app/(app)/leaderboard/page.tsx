@@ -95,15 +95,10 @@ export default async function LeaderboardPage({ searchParams }: PageProps<"/lead
       <h1 className="mt-6 font-ide-display text-[2.6rem] leading-[1.05] font-semibold tracking-[-0.03em]">
         Leaderboard
       </h1>
-      <p className="mt-3 max-w-[60ch] text-sm leading-relaxed text-ide-ink-2">
-        Coding Nights are not ranked, nobody here is being assessed. This page
-        is just a running total of best scores, and it refreshes every ten
-        seconds.
-      </p>
 
       {rows.length === 0 ? (
         <p className="mt-10 text-sm text-ide-ink-3">
-          Nothing here yet. Scores appear once someone submits a solution.
+          No scores yet.
         </p>
       ) : (
         <>

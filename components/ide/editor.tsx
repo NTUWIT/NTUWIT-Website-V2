@@ -694,12 +694,6 @@ function CustomInput({
 }) {
   return (
     <div className="p-4">
-      <p className="max-w-[62ch] text-sm leading-relaxed text-ide-ink-2">
-        Try your function on anything you like. Write the arguments as a JSON
-        array, one entry per parameter, and it runs beside the samples on your
-        next <span className="font-medium text-ide-ink">Run</span>. It is
-        never compared and never scored.
-      </p>
       <label className="sr-only" htmlFor="custom-input">
         Your own arguments, as a JSON array
       </label>
@@ -770,7 +764,6 @@ function Results({
         <p className="text-sm font-medium text-ide-ink">
           {busy === "run" ? "Running your samples" : "Checking every test"}
         </p>
-        <p className="text-xs text-ide-ink-3">Usually one to three seconds.</p>
       </div>
     );
   }
@@ -782,7 +775,6 @@ function Results({
     const accepted = submit.verdict === "accepted";
     const partial = !accepted && submit.passedCount > 0;
     const tone: Tone = accepted ? "pass" : partial ? "warn" : VERDICT_TONE[submit.verdict] ?? "fail";
-    const pct = Math.round((submit.passedCount / submit.totalCount) * 100);
 
     return (
       <div className="settle p-5">
@@ -811,28 +803,17 @@ function Results({
           ))}
         </div>
 
-        <div className="settle-2 mt-4 max-w-[68ch] space-y-2 text-sm leading-relaxed text-ide-ink-2">
-          {accepted ? (
-            <p>
-              Every test passed. Your best score on this problem is the one that
-              counts, so nothing you try next can lower it, {pct}% is yours.
+        {!accepted && (
+          <div className="settle-2 mt-4 max-w-[68ch] space-y-2 text-sm leading-relaxed text-ide-ink-2">
+            <p className="font-medium text-ide-ink">
+              {/* Only the failing test's number: hidden test content is never shown. */}
+              {submit.failedAt !== null
+                ? `The first one to fail was test ${submit.failedAt}.`
+                : "Some tests failed."}
             </p>
-          ) : (
-            <>
-              <p className="font-medium text-ide-ink">
-                {/* Only the failing test's number: hidden test content is never shown. */}
-                {submit.failedAt !== null
-                  ? `The first one to fail was test ${submit.failedAt}.`
-                  : "Some tests failed."}
-              </p>
-              {VERDICT_HINT[submit.verdict] && <p>{VERDICT_HINT[submit.verdict]}</p>}
-              <p className="text-ide-ink-3">
-                A hidden test&apos;s input stays hidden, try the same shape of input
-                yourself under <span className="text-ide-ink-2">Custom input</span>.
-              </p>
-            </>
-          )}
-        </div>
+            {VERDICT_HINT[submit.verdict] && <p>{VERDICT_HINT[submit.verdict]}</p>}
+          </div>
+        )}
 
         <SubmitTests tests={submit.tests} />
       </div>
@@ -900,18 +881,6 @@ function Results({
   return (
     <div className="flex h-full flex-col items-center justify-center gap-1.5 p-6 text-center">
       <p className="text-sm font-medium text-ide-ink-2">Nothing run yet</p>
-      <p className="max-w-md text-sm leading-relaxed text-ide-ink-3">
-        <span className="text-ide-ink-2">Run</span> tries your code on the
-        examples you can see. <span className="text-ide-ink-2">Submit</span> checks
-        it against every test
-        {hiddenCount > 0 && (
-          <>
-            , including <span className="tnum text-ide-ink-2">{hiddenCount}</span> you
-            cannot see
-          </>
-        )}
-        , and records a score.
-      </p>
     </div>
   );
 }
@@ -970,7 +939,16 @@ function TestRow({ test, title }: { test: RunTest; title: string }) {
       <div className="mb-2.5 flex items-center gap-2.5">
         <span className="text-sm font-medium text-ide-ink">{title}</span>
         <Mark tone={tone}>
-          {test.isCustom ? verdictText(test.verdict) : test.passed ? "Passed" : verdictText(test.verdict)}
+          {/* The custom case is compared against a sentinel that never matches,
+              so a clean run comes back as wrong_answer. Only real failures
+              (crash, timeout, compile) are worth naming. */}
+          {test.isCustom
+            ? test.verdict === "wrong_answer" || test.verdict === "accepted"
+              ? "Ran"
+              : verdictText(test.verdict)
+            : test.passed
+              ? "Passed"
+              : verdictText(test.verdict)}
         </Mark>
       </div>
 
@@ -1039,10 +1017,7 @@ function History({
 }) {
   if (entries.length === 0) {
     return (
-      <Placeholder title="No submissions yet">
-        Every submission is kept here with the code you sent
-        newest first.
-      </Placeholder>
+      <Placeholder title="No submissions yet" />
     );
   }
 
@@ -1085,11 +1060,11 @@ function History({
   );
 }
 
-function Placeholder({ title, children }: { title: string; children: React.ReactNode }) {
+function Placeholder({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-1.5 p-6 text-center">
       <p className="text-sm font-medium text-ide-ink-2">{title}</p>
-      <p className="max-w-md text-sm leading-relaxed text-ide-ink-3">{children}</p>
+      {children && <p className="max-w-md text-sm leading-relaxed text-ide-ink-3">{children}</p>}
     </div>
   );
 }
