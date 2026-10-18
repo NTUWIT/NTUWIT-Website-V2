@@ -596,6 +596,10 @@ export async function insertGuest(id: string, displayName: string) {
   await db.insert(guests).values({ id, displayName });
 }
 
+export async function renameGuest(id: string, displayName: string) {
+  await db.update(guests).set({ displayName }).where(eq(guests.id, id));
+}
+
 export async function getGuestNames(ids: string[]): Promise<Map<string, string>> {
   const names = new Map<string, string>();
   if (ids.length === 0) return names;

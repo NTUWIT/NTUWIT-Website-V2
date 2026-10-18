@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
+import { notFound, redirect } from "next/navigation";
 
 import { AccountMenu } from "@/components/ide/AccountMenu";
 import { isAdmin } from "@/lib/auth";
@@ -15,9 +16,11 @@ export const metadata = {
  * Everything under /admin. A non-admin gets a 404 rather than a "forbidden"
  * page: there is no reason to confirm the route exists to someone who cannot
  * use it. The server actions re-check the role themselves, because this guard
- * does not cover them.
+ * does not cover them. Signed-out visitors go to the account form instead:
+ * participants never see a sign-in link, so this is the organisers' way in.
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  if (!(await auth()).userId) redirect("/sign-in?next=/admin");
   if (!(await isAdmin())) notFound();
 
   return (

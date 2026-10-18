@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Show } from "@clerk/nextjs";
 
 import { AccountMenu } from "@/components/ide/AccountMenu";
+import { GuestNameMenu } from "@/components/ide/GuestNameMenu";
 
 import { EventTimer } from "@/components/ide/event-timer";
 import { ThemeToggle } from "@/components/ide/theme";
@@ -50,8 +51,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             // A guest (auth mode `none`) has no Clerk session, so Clerk's
             // signed-in/out switch would offer them "Sign in" forever.
             // Leaving keeps the guest cookie: coming back resumes as the same name.
-            <div className="ml-1 flex items-center gap-2 text-sm">
-              <span className="hidden max-w-32 truncate text-ide-ink-2 sm:block">{guestName}</span>
+            <div className="ml-1 flex items-center gap-1 text-sm">
+              <GuestNameMenu key={guestName} name={guestName} />
               <Link
                 href="/"
                 className="rounded-control px-2.5 py-2 text-ide-ink-3 transition hover:bg-ide-panel-2 hover:text-ide-ink"

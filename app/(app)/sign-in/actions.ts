@@ -3,8 +3,11 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { readAuthMode } from "@/lib/auth";
-import { insertGuest } from "@/lib/db/queries";
+import { revalidatePath } from "next/cache";
+
+import { isGuestId } from "@/lib/auth-mode";
+import { readAuthMode, requireUser } from "@/lib/auth";
+import { insertGuest, renameGuest } from "@/lib/db/queries";
 import { GUEST_COOKIE, newGuestId, signGuest } from "@/lib/guest-cookie";
 import { withinLimit } from "@/lib/ratelimit";
 import { guestName } from "@/lib/validation";
@@ -61,4 +64,35 @@ export async function joinAsGuest(name: string, redirectTo: string): Promise<Joi
 
   // Same rule as the sign-in page: same-origin paths only.
   redirect(redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "/ide");
+}
+
+export type RenameResult = { ok: true; name: string } | { ok: false; error: string };
+
+/**
+ * A guest changing their display name from the navbar. The id comes from the
+ * signed cookie only, so a guest can rename nobody but themselves.
+ */
+export async function renameSelf(name: string): Promise<RenameResult> {
+  const id = await requireUser();
+  if (!id || !isGuestId(id)) return { ok: false, error: "Join first, then you can change your name." };
+
+  const parsed = guestName.safeParse(name);
+  if (!parsed.success) {
+    return { ok: false, error: "Use a name between 1 and 40 characters, letters, numbers and spaces." };
+  }
+
+  if (!(await withinLimit("rename", id))) {
+    return { ok: false, error: "You've changed your name a lot just now. Wait a minute and try again." };
+  }
+
+  try {
+    await renameGuest(id, parsed.data);
+  } catch (error) {
+    console.error("renameSelf: could not save guest name", error);
+    return { ok: false, error: "Couldn't save your name. Try again in a moment." };
+  }
+
+  // The navbar and the leaderboard both read the name per render.
+  revalidatePath("/", "layout");
+  return { ok: true, name: parsed.data };
 }

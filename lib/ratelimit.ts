@@ -20,6 +20,7 @@ const LIMITS = {
   // has to admit a whole lecture hall behind one egress address, so it only
   // stops scripted floods of leaderboard names, not a busy room.
   guest: { limit: 30, window: "10 m" },
+  rename: { limit: 5, window: "1 m" },
 } as const;
 
 export type LimitName = keyof typeof LIMITS;
